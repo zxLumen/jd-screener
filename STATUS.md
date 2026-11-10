@@ -19,7 +19,7 @@
 
 - 首页：`GET /` **200 / 7925B / 106ms**；`/api/health` **200 / 83ms / ai:true**。
 - 全站冒烟：`caddy-smoke.sh` **24 个 host 全 ok，app=0 / route=0**（含 duiwei 200）。
-- 容器：`docker-duiwei-1` **healthy、restarts=0**，镜像 digest `sha256:9cc73393…`。
+- 容器：`docker-duiwei-1` **healthy、restarts=0**，镜像 digest `sha256:96f15a5e…`。
 - 测试：`node --test test/*.test.js` → **23 pass / 0 fail**。
 - 规则路径（3 条示例）：**94 强投 / 75 可投 / 25 不建议**。
 - AI 路径（同 3 条）：**89 / 60 / 30**，3 条全成功、缓存 3 条；单条新 JD 真实调用 **4.8s / aiScore 42**。
@@ -28,7 +28,7 @@
 
 ## 发布记录
 
-- 应用仓库：`0bd69bd`（CI 构建并推 GHCR）。
+- 应用仓库：`d8adcc4`（CI 构建并推 GHCR；含 robots.txt）。
 - 主站：`8738de6`（compose + `duiwei.caddy` + `deploy.sh` pull + 默认应用 + `.env.example`）。
 - DNS：DNSPod A 记录 `duiwei → 103.205.240.62`，RecordId `2447180381`。
 - AI 令牌：网关应用 `duiwei`，绑定 `chat-default` / `deepseek-v4.1-flash`，日限 300k tokens。

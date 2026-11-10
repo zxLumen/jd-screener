@@ -112,7 +112,7 @@ JD_MODEL=                                      # 可选；留空由网关按令�
 | --- | --- |
 | 应用仓库 | `https://github.com/zxLumen/jd-screener`（public） |
 | 镜像 | `ghcr.io/zxlumen/jd-screener:latest`（public，匿名 pull） |
-| 应用提交 | `0bd69bd` |
+| 应用提交 | `d8adcc4` |
 | 主站提交 | `8738de6` |
 | 线上路由 | `duiwei.{$DOMAIN} → duiwei:8790` |
 | DNS | DNSPod A `duiwei → 103.205.240.62`（RecordId `2447180381`） |
