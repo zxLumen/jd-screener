@@ -161,8 +161,8 @@ JD_MODEL=                                      # 可选；留空由网关按令�
 | 项 | 值 |
 | --- | --- |
 | 应用仓库 | `https://github.com/zxLumen/jd-screener`（public） |
-| 镜像 | `ghcr.io/zxlumen/jd-screener:latest`（public，匿名 pull）；v0.2.1 digest `sha256:527115bf…` |
-| 应用提交 | `18d52fe`（v0.2.1） |
+| 镜像 | `ghcr.io/zxlumen/jd-screener:latest`（public，匿名 pull）；v0.2.1 digest `sha256:4a3de8ac…` |
+| 应用提交 | `a732785`（v0.2.1） |
 | 主站提交 | `8738de6`（v0.1 上线时） |
 | 线上路由 | `duiwei.{$DOMAIN} → duiwei:8790` |
 | DNS | DNSPod A `duiwei → 103.205.240.62`（RecordId `2447180381`） |
@@ -226,15 +226,15 @@ deploy/                compose 服务片段、Caddy 路由、应用栏图标
 - 脉脉（公开页）：**1.66s / 候选 18 / 返回 12**，标题/公司/城市/薪资正常；部分详情走 JSON-LD，失败标「按摘要算」。
 - BOSS（假 cookie 验证失败路径）：`/api/search` 返回 **0 条 + `risk`**，文案「code 37：cookie 失效或 UA/IP 不一致」；管理接口未带令牌 **401**，保存后只返回掩码。
 
-线上验收（2026-11-10，`18d52fe` / digest `sha256:527115bf…`）：
+线上验收（2026-11-10，`a732785` / digest `sha256:4a3de8ac…`）：
 
 - 首页 **200 / 11109B / 74ms**；`/api/health` **200 / v0.2.1 / ai:true**；`/api/sources` **6 个公开源** + BOSS 未配置。
-- 真实搜索（北京 · AI 应用工程师 · 5 源）：**200 / 3.53s / 候选 60 / 补详情 24 / 返回 12**；猎聘 40 / LinkedIn 20 / V2EX 10 / 电鸭 25 / 脉脉 18。
+- 真实搜索（北京 · AI 应用工程师 · 5 源）：冷缓存 **9.2s**，命中列表缓存 **3.5s**；候选 60 / 补详情 24 / 返回 12。猎聘 40 / LinkedIn 20 / V2EX 10 / 电鸭 25 / 脉脉 18。
 - 结果：**80 强投（脉脉）/ 80（猎聘）/ 78（脉脉）**；4 条脉脉 + 7 条猎聘 + 1 条 LinkedIn；薪资 `30-60K`、`45-75K·16薪`。
 - 脉脉单源：**1.08s / 候选 18 / 返回 12**，缓存命中 **0.27s**；详情 JSON-LD 成功，失败标「按摘要算」。
 - BOSS 假 cookie 失败路径：**0.54s / 0 条 / `risk`**，文案「code 37：cookie 失效或 UA/IP 不一致」；未带令牌 **401**，保存后只返回掩码，清除后恢复未配置。
 - 容器：**healthy / restarts=0 / 17.92–31.91MiB / 96MiB**；Caddy 冒烟 **24/24 ok**。
-- 前端「来源登录」：输入令牌后显示 BOSS 未配置 / 脉脉已配置，保存/清除不泄露 cookie；**0 console error**。
+- 前端「来源登录」：输入令牌后显示 BOSS 未配置 / 脉脉已配置；UA 自动填当前浏览器；保存/清除不泄露 cookie；**0 console error**。
 - 远程岗位未勾选「接受远程」时城市 gate = warn；LinkedIn 429 冷却 10 分钟并在结果页标原因。
 
 ## 版本

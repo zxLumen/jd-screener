@@ -5,7 +5,7 @@
 - **线上**：https://duiwei.zxlumen.cn
 - **定位**：岗位搜索 + 简历匹配器。规则分永远可用，AI 只做加分项。
 - **仓库**：https://github.com/zxLumen/jd-screener（public）
-- **镜像**：`ghcr.io/zxlumen/jd-screener:latest`（public，匿名 pull）；v0.2.1 digest `sha256:527115bf…`
+- **镜像**：`ghcr.io/zxlumen/jd-screener:latest`（public，匿名 pull）；v0.2.1 digest `sha256:4a3de8ac…`
 
 ## 0.2.1 已交付
 
@@ -19,7 +19,7 @@
 ## 线上验收（2026-11-10 10:25）
 
 - 首页 **200 / 11109B / 74ms**；health **v0.2.1 / ai:true**；sources **6 公开源 + BOSS 未配置**。
-- 5 源搜索（北京 · AI 应用工程师）：**3.53s / 候选 60 / 补详情 24 / 返回 12**；猎聘 40 / LinkedIn 20 / V2EX 10 / 电鸭 25 / 脉脉 18。
+- 5 源搜索（北京 · AI 应用工程师）：冷缓存 **9.2s**、命中列表缓存 **3.5s**；候选 60 / 补详情 24 / 返回 12。猎聘 40 / LinkedIn 20 / V2EX 10 / 电鸭 25 / 脉脉 18。
 - 结果：**80 强投（脉脉）/ 80（猎聘）/ 78（脉脉）**；4 脉脉 + 7 猎聘 + 1 LinkedIn；薪资 `30-60K`、`45-75K·16薪`。
 - 脉脉单源：**1.08s / 候选 18 / 返回 12**，缓存命中 **0.27s**；部分详情走 JSON-LD，失败标「按摘要算」。
 - BOSS 假 cookie：**0.54s / 0 条 / `risk`**，文案 code 37；未带令牌 **401**；保存只回掩码；清除后恢复未配置。
@@ -44,11 +44,11 @@ grep '^JD_ADMIN_TOKEN=' /home/ubuntu/zxLumen-Blog/docker/.env
 
 ## 发布记录
 
-- 0.2.1：应用 `18d52fe`；镜像 `sha256:527115bf…`；容器重建，新增 `JD_ADMIN_TOKEN`（`.env` 已备份 `.env.bak-before-duiwei-auth-*`）。
+- 0.2.1：应用 `a732785`；镜像 `sha256:4a3de8ac…`；容器重建，新增 `JD_ADMIN_TOKEN`（`.env` 已备份 `.env.bak-before-duiwei-auth-*`）。
 - 0.2.0：应用 `420328d`；镜像 `sha256:69bad763…`；新增搜索 + 简历上传。
 - 0.1.0：应用 `d8adcc4`，主站 `8738de6`；DNS `duiwei → 103.205.240.62`（RecordId `2447180381`）。
 - AI 令牌：网关应用 `duiwei`，`chat-default` / `deepseek-v4.1-flash`，日限 300k tokens。
-- 本地 rollback tag：`rollback-20261110-1000`（v0.1）、`rollback-v02-fee0`、`rollback-v02-6b22`、`rollback-v02-8c39`、`rollback-v021-pre`。
+- 本地 rollback tag：`rollback-20261110-1000`（v0.1）、`rollback-v02-fee0`、`rollback-v02-6b22`、`rollback-v02-8c39`、`rollback-v021-pre`、`rollback-v021-5271`。
 
 ## 明确不做 / 还没接
 
@@ -61,6 +61,6 @@ grep '^JD_ADMIN_TOKEN=' /home/ubuntu/zxLumen-Blog/docker/.env
 
 ## 回滚
 
-1. 主站应用栏移除「对位」入口，或把 compose 的 `JD_TAG` 指回 `rollback-v021-pre` / `rollback-v02-8c39`。
+1. 主站应用栏移除「对位」入口，或把 compose 的 `JD_TAG` 指回 `rollback-v021-pre`、`rollback-v021-5271` / `rollback-v02-8c39`。
 2. `docker compose up -d duiwei`；必要时 `docker compose stop duiwei`。
 3. 无数据库、无迁移；`duiwei-data` 卷只存匿名计数与来源 cookie（0600）。
