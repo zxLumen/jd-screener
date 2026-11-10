@@ -54,6 +54,15 @@ node --test test/*.test.js   # 40 个测试
 | Remote OK | 公开 API | 英文远程岗，默认关闭；使用时保留回链 |
 | BOSS 直聘 | 登录 cookie（「来源登录」配置） | 搜索接口带 cookie + 同 UA；失效会返回 `code 37`，页面明确报错 |
 | 脉脉 | 公开岗位页 | Next.js `__NEXT_DATA__` 列表 + JSON-LD 详情；无需登录，按方向+城市筛，关键词本地过滤 |
+| 职友集 | 公开 RSS | `rss/job` 列表含公司/薪资/年限/学历/简介；详情跳原站，不抓正文 |
+
+探测后**明确未接**（`blocked: true`，`reason` 写在 `/api/sources`）：
+
+| 来源 | 原因 | 证据（2026-11-10） |
+| --- | --- | --- |
+| 智联招聘 | 风控验证 | 列表页 `Security Verification`；`fe-api.zhaopin.com` 返回 `isVerification=1`、0 条 |
+| 前程无忧 | 登录 + WAF | 列表无 SSR；`cupid.51job.com` API 要求 `user-token`，`we.51job.com` 被 Aliyun WAF 拦截 |
+| 拉勾 | Aliyun WAF | 列表页与 `positionAjax.json` 都返回 11KB 验证页，无职位数据 |
 
 没有账号体系、不自动投递、不绕验证码。源失败会在结果页标出原因（如 `429`、`need-city`、`empty`），不会拿假数据凑数。
 
@@ -185,11 +194,11 @@ curl -s https://duiwei.zxlumen.cn/api/sources | head -c 400   # 6 个公开源�
 
 ```
 server.js              Node 原生 http：静态页 + /api + 限流 + 匿名统计
-lib/sources.js         招聘源适配器：猎聘/LinkedIn/V2EX/电鸭/RemoteOK + 链接导入
+lib/sources.js         招聘源适配器：猎聘/LinkedIn/V2EX/电鸭/脉脉/职友集/RemoteOK + 链接导入 + blocked 元数据
 lib/http.js            抓取：超时、大小上限、重定向逐跳校验（防 SSRF）、curl 兜底
 lib/html.js            HTML → 文本、实体解码、按 class 取块
 lib/resume.js          PDF / DOCX / TXT 简历解析（内置 zip + PDF 兜底）
-lib/cache.js           有上限的 TTL 缓存（列表 10 分钟 / 详情 30 分钟）
+lib/cache.js           有上限的 TTL 缓存（列表 10 分钟，脉脉/职友集/LinkedIn 30 分钟；详情 30 分钟）
 lib/auth.js            来源 cookie/UA：0600 落盘、掩码回显、环境变量兜底
 lib/parse.js           JD/简历解析：年限、薪资、学历、城市、风险
 lib/skills.js          技能词典（147 项，中英别名）
@@ -200,7 +209,7 @@ web/index.html         单页界面：简历上传 / 搜岗位 / 粘贴 JD / 结
 web/app.js             原生 ES module 前端
 web/styles.css         暗色主题，桌面 + 移动 + iframe 嵌入
 web/samples.json       3 条示例 JD
-test/                  40 个测试（解析 / 打分 / 来源 / 简历 / 登录态 / 网关 / API）
+test/                  45 个测试（解析 / 打分 / 来源 / 简历 / 登录态 / 网关 / API）
 deploy/                compose 服务片段、Caddy 路由、应用栏图标
 ```
 
@@ -217,19 +226,21 @@ deploy/                compose 服务片段、Caddy 路由、应用栏图标
 
 ## 已验证（本地 v0.2.1）
 
-- `node --test test/*.test.js`：**40 pass / 0 fail**（解析/打分 23、来源 4、简历 5、登录态 2、API 10，其中 API 用真实子进程起服务）。
+- `node --test test/*.test.js`：**45 pass / 0 fail**（解析/打分 23、来源 9、简历 5、登录态 2、API 10，其中 API 用真实子进程起服务）。
 - 简历：真实 PDF **464KB → 8137 字 / 35 项技能 / 111ms**，自动填出「后端研发工程师 / 6 年 / 北京」。
 - 搜索（北京 · AI 应用工程师 · 5 源）：**候选 60 条，补详情 24 条，返回 12 条 / 5.3s**；来源 猎聘 40 / LinkedIn 20 / V2EX 10 / 电鸭 25 / 脉脉 18。
 - 结果：**80 强投 / 78 可投**，含 4 条脉脉 + 7 条猎聘 + 1 条 LinkedIn；薪资 `30-60K`、`45-75K·16薪` 正常解析。
 - 链接导入：猎聘详情 **200 / 0.65s / 1878 字**；LinkedIn 公开职位 **200 / 0.67s / 8255 字**。
 - 浏览器端（Playwright）：上传简历 → 搜索 → 12 张结果卡渲染，**0 console error**；390px 无横向溢出。
+- 来源探测：智联/前程无忧/拉勾均 blocked（风控/WAF/登录），职友集 RSS 可用；默认来源 6 个。
+- 6 源搜索（北京 · AI 应用工程师）：冷缓存 **3.4s**、缓存命中 **0.28s**，候选 69 / 返回 12；6 个源都有结果（猎聘 40 / LinkedIn 20 / V2EX 10 / 电鸭 25 / 脉脉 18 / 职友集 10）。
 - 脉脉（公开页）：**1.66s / 候选 18 / 返回 12**，标题/公司/城市/薪资正常；部分详情走 JSON-LD，失败标「按摘要算」。
 - BOSS（假 cookie 验证失败路径）：`/api/search` 返回 **0 条 + `risk`**，文案「code 37：cookie 失效或 UA/IP 不一致」；管理接口未带令牌 **401**，保存后只返回掩码。
 
 线上验收（2026-11-10，`a732785` / digest `sha256:4a3de8ac…`）：
 
 - 首页 **200 / 11109B / 74ms**；`/api/health` **200 / v0.2.1 / ai:true**；`/api/sources` **6 个公开源** + BOSS 未配置。
-- 真实搜索（北京 · AI 应用工程师 · 5 源）：冷缓存 **9.2s**，命中列表缓存 **3.5s**；候选 60 / 补详情 24 / 返回 12。猎聘 40 / LinkedIn 20 / V2EX 10 / 电鸭 25 / 脉脉 18。
+- 真实搜索（北京 · AI 应用工程师 · 6 源）：冷缓存 **3.4s**，命中缓存 **0.28s**；候选 69 / 补详情 24 / 返回 12。猎聘 40 / LinkedIn 20 / V2EX 10 / 电鸭 25 / 脉脉 18 / 职友集 10。
 - 结果：**80 强投（脉脉）/ 80（猎聘）/ 78（脉脉）**；4 条脉脉 + 7 条猎聘 + 1 条 LinkedIn；薪资 `30-60K`、`45-75K·16薪`。
 - 脉脉单源：**1.08s / 候选 18 / 返回 12**，缓存命中 **0.27s**；详情 JSON-LD 成功，失败标「按摘要算」。
 - BOSS 假 cookie 失败路径：**0.54s / 0 条 / `risk`**，文案「code 37：cookie 失效或 UA/IP 不一致」；未带令牌 **401**，保存后只返回掩码，清除后恢复未配置。
@@ -239,4 +250,4 @@ deploy/                compose 服务片段、Caddy 路由、应用栏图标
 
 ## 版本
 
-`0.2.1` · 2026-11-10 · 搜索 + 简历上传 + 来源登录（BOSS cookie / 脉脉公开页）。见 `STATUS.md`。
+`0.2.2` · 2026-11-10 · 搜索 + 简历上传 + 来源登录 + 职友集 RSS / blocked 探测。见 `STATUS.md`。

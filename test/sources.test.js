@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { parseLiepinList, parseLinkedinList, parseBossList, parseMaimaiListing } from '../lib/sources.js'
+import { parseLiepinList, parseLinkedinList, parseBossList, parseMaimaiListing, parseJobuiRss, publicSources, defaultSourceIds } from '../lib/sources.js'
 
 const LIEPIN = `
 <div class="job-list-item" >
@@ -151,4 +151,60 @@ test('脉脉公开岗位页解析 __NEXT_DATA__', () => {
   assert.equal(listing.items.length, 2)
   assert.equal(listing.items[0].title, '大模型应用工程师')
   assert.equal(listing.items[0].salaryText, '30k-50k·15薪')
+})
+
+const JOBUI_RSS = `<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0"><channel><title>北京 + AI应用工程师</title>
+<item>
+  <title><![CDATA[AI应用工程师 - 北京保联科技有限公司 ]]></title>
+  <link>https://www.jobui.com//job/341759420/?refer=rss</link>
+  <description><![CDATA[公司名称：<a href="https://www.jobui.com//company/1/">北京保联科技有限公司</a><br />工作经验：3-5年  | 工资待遇：10000-14999 | 学历要求：本科以上 <br />工作地区：北京-昌平区<br />发布时间：2026-11-08<br />工作简介：负责大模型应用落地，Python / FastAPI / RAG。<p><a href="x">查看详情</a></p> ]]></description>
+</item>
+<item>
+  <title><![CDATA[AI平台工程师 - 某公司]]></title>
+  <link>https://www.jobui.com//job/341759421/?refer=rss</link>
+  <description><![CDATA[公司名称：某公司<br />工作经验：不限  | 工资待遇：2.5-5万元/月 | 学历要求：硕士以上 <br />工作地区：北京<br />工作简介：模型平台。]]></description>
+</item>
+</channel></rss>`
+
+test('职友集 RSS 解析：标题/公司/薪资/城市/简介', () => {
+  const items = parseJobuiRss(JOBUI_RSS)
+  assert.equal(items.length, 2)
+  assert.equal(items[0].source, 'jobui')
+  assert.equal(items[0].id, '341759420')
+  assert.equal(items[0].title, 'AI应用工程师')
+  assert.equal(items[0].company, '北京保联科技有限公司')
+  assert.equal(items[0].city, '北京-昌平区')
+  assert.equal(items[0].salaryRaw, '10-15K')
+  assert.equal(items[0].url, 'https://www.jobui.com/job/341759420/')
+  assert.match(items[0].text, /Python/)
+  assert.equal(items[1].salaryRaw, '25-50K')
+})
+
+test('职友集默认启用且进入默认来源', () => {
+  const s = publicSources().find((x) => x.id === 'jobui')
+  assert.equal(s.blocked, false)
+  assert.equal(s.enabled, true)
+  assert.ok(defaultSourceIds().includes('jobui'))
+})
+
+test('智联招聘：blocked + 风控 reason', () => {
+  const s = publicSources().find((x) => x.id === 'zhaopin')
+  assert.equal(s.blocked, true)
+  assert.match(s.reason, /Security Verification|风控/)
+  assert.ok(!defaultSourceIds().includes('zhaopin'))
+})
+
+test('前程无忧：blocked + 登录/WAF reason', () => {
+  const s = publicSources().find((x) => x.id === '51job')
+  assert.equal(s.blocked, true)
+  assert.match(s.reason, /user-token|WAF/)
+  assert.ok(!defaultSourceIds().includes('51job'))
+})
+
+test('拉勾：blocked + WAF reason', () => {
+  const s = publicSources().find((x) => x.id === 'lagou')
+  assert.equal(s.blocked, true)
+  assert.match(s.reason, /WAF|captcha/)
+  assert.ok(!defaultSourceIds().includes('lagou'))
 })

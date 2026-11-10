@@ -20,7 +20,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const WEB_DIR = path.join(__dirname, 'web')
 const DATA_DIR = path.join(__dirname, 'data')
 const STATS_FILE = path.join(DATA_DIR, 'stats.json')
-const VERSION = '0.2.1'
+const VERSION = '0.2.2'
 const PORT = Number(process.env.PORT) || 8790
 const MAX_JDS = 8
 const MAX_JD_CHARS = 20000
@@ -442,7 +442,7 @@ function validateSearchInput(body) {
   if (query.length < 1) throw new HttpError(400, '先填关键词或目标岗位')
   const city = String(body.city || '').trim().slice(0, 20)
   const wanted = Array.isArray(body.sources) ? body.sources.filter((s) => typeof s === 'string') : []
-  const available = new Set(publicSources().map((s) => s.id))
+  const available = new Set(publicSources().filter((s) => !s.blocked).map((s) => s.id))
   const sources = [...new Set(wanted.filter((s) => available.has(s)))]
   if (!sources.length) throw new HttpError(400, '至少选一个可用来源')
   const limit = Math.min(MAX_SEARCH, Math.max(4, Number(body.limit) || 12))

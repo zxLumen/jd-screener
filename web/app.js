@@ -392,8 +392,10 @@ function clearJds() {
 
 /* ---------------- 搜索 ---------------- */
 function renderSources() {
-  const list = state.sources.length ? state.sources : FALLBACK_SOURCES
-  const off = state.unavailable ?? FALLBACK_UNAVAILABLE
+  const all = state.sources.length ? state.sources : FALLBACK_SOURCES
+  const list = all.filter((s) => !s.blocked)
+  const blocked = all.filter((s) => s.blocked)
+  const off = [...(state.unavailable ?? FALLBACK_UNAVAILABLE), ...blocked]
   $('#source-picker').innerHTML = [
     ...list.map(
       (s) => `<label class="src-opt">
@@ -402,13 +404,13 @@ function renderSources() {
       </label>`,
     ),
     ...off.map(
-      (s) => `<label class="src-opt off" title="${esc(s.note || '未接')}">
+      (s) => `<label class="src-opt off" title="${esc(s.reason || s.note || '未接')}">
         <input type="checkbox" disabled />
-        <span class="src-opt-main"><b>${esc(s.name)}</b><small>未接</small></span>
+        <span class="src-opt-main"><b>${esc(s.name)}</b><small>未接 · ${esc(s.reason || s.note || '')}</small></span>
       </label>`,
     ),
   ].join('')
-  $('#source-status').textContent = `已接 ${list.length} · 默认 ${list.filter((s) => s.enabled).length}`
+  $('#source-status').textContent = `已接 ${list.length} · 默认 ${list.filter((s) => s.enabled).length} · 未接 ${off.length}`
   updateSourceStatus()
 }
 
