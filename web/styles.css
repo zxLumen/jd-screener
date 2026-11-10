@@ -1301,3 +1301,8 @@ a.src-tag:hover {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+.warn-note {
+  color: var(--amber);
+  font-size: 11px;
+}

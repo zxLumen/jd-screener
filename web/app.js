@@ -774,6 +774,7 @@ function renderResult(r) {
         <span>JD ${r.jdStats?.chars || 0} 字</span>
         <span>置信度 ${confidenceLabel(r.confidence)}</span>
         <span>${esc(aiMetaNote(r))}</span>
+        ${r.sourceDetail === 'fallback' ? '<span class="warn-note">详情未取到，按摘要算</span>' : ''}
         ${sourceLink ? `<span class="src-line">${sourceLink}${posted ? ` · ${posted}` : ''}</span>` : ''}
       </div>
       <div class="gates">${gates}</div>
