@@ -785,6 +785,7 @@ async function clearSourceAuth(id) {
 async function openAuth() {
   const dlg = $('#auth')
   $('#auth-token').value = getAdminToken()
+  if (!$('#auth-boss-ua').value) $('#auth-boss-ua').value = navigator.userAgent
   dlg.showModal()
   if ($('#auth-token').value) await loadAuthStatus()
   else $('#auth-status').textContent = '填入 JD_ADMIN_TOKEN 后点这里查询。'

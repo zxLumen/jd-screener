@@ -225,8 +225,9 @@
 
       <div class="auth-block">
         <h4>BOSS 直聘 <span id="auth-boss-state" class="tag">未配置</span></h4>
+        <p class="muted auth-hint">复制：F12 → Network → 任意 zhipin.com 请求 → Request Headers → Cookie（不要用 document.cookie，可能漏 HttpOnly）。</p>
         <textarea id="auth-boss-cookie" rows="3" placeholder="粘贴浏览器里 www.zhipin.com 的完整 Cookie（含 __zp_stoken__ / bst / wt2）"></textarea>
-        <input id="auth-boss-ua" type="text" placeholder="UA：与生成 cookie 的浏览器一致（可选，默认 Chrome Windows）" />
+        <input id="auth-boss-ua" type="text" placeholder="UA：默认取当前浏览器，建议不要改" />
         <div class="row">
           <button class="primary" type="button" data-auth-save="boss">保存 BOSS</button>
           <button class="ghost" type="button" data-auth-clear="boss">清除</button>

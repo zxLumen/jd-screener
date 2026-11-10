@@ -1350,3 +1350,9 @@ a.src-tag:hover {
   color: var(--accent);
   border-color: var(--border-strong);
 }
+
+.auth-hint {
+  margin: 0 0 8px;
+  font-size: 11px;
+  line-height: 1.5;
+}
