@@ -7,7 +7,7 @@
 - AI 只加分：经主站 AI 网关调用，规则分仍占 55%，单次 900 tokens、22s 超时、2 小时缓存。
 - 隐私默认关死：画像与 JD 只存浏览器 `localStorage`；服务端不存正文、不记 IP，只累计匿名计数。
 
-线上目标地址：`https://duiwei.zxlumen.cn`（尚未发布，见「部署」）。
+线上地址：**https://duiwei.zxlumen.cn**（2026-11-10 已发布，主站应用栏「对位」panel 打开）。
 
 ## 快速开始
 
@@ -104,34 +104,30 @@ JD_MODEL=                                      # 可选；留空由网关按令�
 - **开启 AI 时**，画像摘要（含简历摘要）与 JD 原文会经主站网关转发给模型供应商；不开启 AI 则不出本机。
 - 反代层（主站 Caddy）的访问日志仍会按主站统一策略记录请求 IP，这不在本应用控制范围内。
 
-## 部署（发布前需要老板拍板）
+## 部署（2026-11-10 已发布）
 
-仓库目前是本地目录，尚未建 GitHub 仓库 / GHCR 镜像 / 线上路由。发布步骤：
+发布走主站既有流程：应用仓库 CI 推 GHCR → 主站 compose/Caddy 由 CI 同步 → 服务器只 pull。
 
-1. **构建镜像**（无依赖，镜像很小）：
+| 项 | 值 |
+| --- | --- |
+| 应用仓库 | `https://github.com/zxLumen/jd-screener`（public） |
+| 镜像 | `ghcr.io/zxlumen/jd-screener:latest`（public，匿名 pull） |
+| 应用提交 | `0bd69bd` |
+| 主站提交 | `8738de6` |
+| 线上路由 | `duiwei.{$DOMAIN} → duiwei:8790` |
+| DNS | DNSPod A `duiwei → 103.205.240.62`（RecordId `2447180381`） |
+| AI 令牌 | 网关应用 `duiwei`，`chat-default` / `deepseek-v4.1-flash`，日限 300k tokens |
+| 应用栏 | 18 个应用，「对位」`openIn=panel`，图标 `/apps/duiwei.png` |
 
-```bash
-docker build -t ghcr.io/zxlumen/jd-screener:0.1.0 .
-docker push ghcr.io/zxlumen/jd-screener:0.1.0
-```
+服务器侧改动（已提交主站仓库）：
 
-2. **主站 compose**：把 `deploy/compose.service.yml` 里的 `duiwei` 服务粘进 `zxLumen-Blog/docker/docker-compose.yml`，并在 `volumes:` 加 `duiwei-data:`。
+- `docker/docker-compose.yml`：新增 `duiwei` 服务 + `duiwei-data` 卷。
+- `docker/caddy/sites/duiwei.caddy`：子域反代。
+- `docker/deploy.sh`：部署前 pull `duiwei` 镜像。
+- `docker/.env`：新增 `JD_AI_TOKEN`（服务器本地，已备份）。
+- `apps/next-home/src/lib/app-config.ts`：默认应用加入「对位」。
 
-3. **主站 Caddy**：把 `deploy/duiwei.caddy` 复制为 `zxLumen-Blog/docker/caddy/sites/duiwei.caddy`。
-
-4. **令牌**：在 `zxLumen-Blog/docker/.env` 加 `JD_AI_TOKEN=zxai_xxx`（admin「AI 密钥」页新建应用令牌，建议固定模型 + 每日 token 上限）。
-
-5. **起服务**：
-
-```bash
-cd /home/ubuntu/Projects/zxLumen-Blog/docker
-docker compose up -d --no-deps duiwei
-docker compose exec caddy caddy reload --config /etc/caddy/Caddyfile
-```
-
-6. **应用栏**：主站 `/admin` → 应用 → 新增：名称「对位」、地址 `https://duiwei.zxlumen.cn`、`openIn=panel`、上传图标 `deploy/duiwei-icon.png`。
-
-7. **验收**：
+验收命令：
 
 ```bash
 curl -sI https://duiwei.zxlumen.cn/ | head -1                 # 200
@@ -139,7 +135,7 @@ curl -s https://duiwei.zxlumen.cn/api/health                  # {"ok":true,...,"
 curl -s https://duiwei.zxlumen.cn/api/config | head -c 300    # ai:true, maxJDs:8
 ```
 
-回滚：`docker compose stop duiwei`，删掉 `duiwei.caddy` 后 `caddy reload`，应用栏移除入口即可；无数据库、无迁移。
+回滚：应用栏移除入口 → `docker compose stop duiwei` → 删 `duiwei.caddy` 后 `caddy reload` → 可选删 DNS 记录/禁用令牌。无数据库、无迁移。
 
 ## 文件结构
 
@@ -166,15 +162,18 @@ deploy/                compose 服务片段、Caddy 路由、应用栏图标
 - **没有向量语义匹配**：技能命中是词典 + 词边界，同义词覆盖有限；语义判断只靠 AI 提示词。
 - **没有公司评价数据**：不接脉脉/看准网，风险信号只从 JD 文本里读。
 - **薪资只算月薪**：股票/期权/签字费/年终奖不折算总包；`·15薪` 只展示，不参与打分。
-- **没有 CI**：仓库还没建远端，镜像需手动 build/push；后续可补 GitHub Actions。
+- **CI 只做镜像**：GitHub Actions 只 build/push GHCR，没有自动跑本仓库测试；发布前本地跑 `node --test`。
 
 ## 已验证
 
 - `node --test test/*.test.js`：**23 pass / 0 fail**（解析与打分 13、网关 3、API 7，其中 API 用真实子进程起服务）。
-- 本地 `GET /`：**200 / 7.9KB / 15ms**；`/api/health` 返回 `ai:false` 时自动规则模式。
-- 示例画像 + 3 条示例 JD：**94 强投 / 75 可投 / 25 不建议**，风险信号正确命中外包、大小周、职责过杂。
-- 浏览器（Chromium 1440×1000 / 390×844）：无 console error，移动端单列布局正常。
+- 线上 `GET /`：**200 / 7925B / 106ms**；`/api/health` **200 / 83ms / ai:true**。
+- 全站 Caddy 冒烟：**24 个 host 全 ok，app=0 / route=0**（含 `duiwei` 200）。
+- 规则路径 3 条示例：**94 强投 / 75 可投 / 25 不建议**；AI 路径：**89 / 60 / 30**（3 条全成功，缓存 3 条）。
+- 单条新 JD 真实 AI：**4.8s / aiScore 42**（硕士门槛 fail，结论「不建议」）。
+- 网关用量：duiwei 今日 **5145 tokens**，7 成功 / 0 失败；容器 healthy、restarts=0。
+- 应用栏 panel：iframe 加载 `https://duiwei.zxlumen.cn/`，标题与「AI 已接」正常。
 
 ## 版本
 
-`0.1.0` · 2026-11-10 · 未发布。见 `STATUS.md`。
+`0.1.0` · 2026-11-10 · 已发布。见 `STATUS.md`。

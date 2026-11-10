@@ -1,10 +1,11 @@
 # STATUS · 对位（AI 智能筛选 JD）
 
 - **版本**：0.1.0
-- **状态**：可用（本地验收通过，**未发布**）
-- **日期**：2026-11-10
+- **状态**：已上线（2026-11-10）
+- **线上**：https://duiwei.zxlumen.cn
 - **定位**：给求职者的 JD 批量筛选器。规则分永远可用，AI 只做加分项。
-- **线上**：无（目标 `duiwei.zxlumen.cn`，等老板拍板）
+- **仓库**：https://github.com/zxLumen/jd-screener（public）
+- **镜像**：`ghcr.io/zxlumen/jd-screener:latest`（public，服务器匿名 pull）
 
 ## 已交付
 
@@ -12,23 +13,26 @@
 - 规则引擎：年限、学历、城市、薪资四项硬门槛 + 147 项技能词典 + 11 类风险信号。
 - AI 层：主站网关、900 tokens、22s 超时、2h 缓存、失败自动回落规则分。
 - 隐私：画像/JD 只在 `localStorage`，服务端只存匿名计数。
-- 部署物料：`Dockerfile`、`deploy/compose.service.yml`、`deploy/duiwei.caddy`、`deploy/duiwei-icon.png`。
+- 部署：主站 compose + Caddy 子域 + 应用栏 panel 入口 + GHCR Actions。
 
-## 验收数字
+## 线上验收（2026-11-10）
 
+- 首页：`GET /` **200 / 7925B / 106ms**；`/api/health` **200 / 83ms / ai:true**。
+- 全站冒烟：`caddy-smoke.sh` **24 个 host 全 ok，app=0 / route=0**（含 duiwei 200）。
+- 容器：`docker-duiwei-1` **healthy、restarts=0**，镜像 digest `sha256:9cc73393…`。
 - 测试：`node --test test/*.test.js` → **23 pass / 0 fail**。
-- 本地：`GET /` **200 / 7.9KB / 15ms**；`/api/health` 在未配令牌时 `ai:false`，自动规则模式。
-- 示例画像 + 3 条示例 JD：**94 强投 / 75 可投 / 25 不建议**；风险命中外包、大小周、职责过杂。
-- 浏览器：Chromium 1440×1000 与 390×844，无 console error。
-- 服务常驻：`PORT=8790 node server.js`，零依赖、无构建。
+- 规则路径（3 条示例）：**94 强投 / 75 可投 / 25 不建议**。
+- AI 路径（同 3 条）：**89 / 60 / 30**，3 条全成功、缓存 3 条；单条新 JD 真实调用 **4.8s / aiScore 42**。
+- AI 网关：duiwei 令牌今日用量 **5145 tokens**，7 成功 / 0 失败；日上限 300k。
+- 应用栏：18 个应用，panel 打开 `https://duiwei.zxlumen.cn/` 正常，iframe 内显示「AI 已接」。
 
-## 发布前还差
+## 发布记录
 
-1. 建 GitHub 仓库 / GHCR 镜像（当前只有本地目录，无远端）。
-2. 主站 compose 加 `duiwei` 服务、Caddy 加 `duiwei.caddy`。
-3. admin 签 `JD_AI_TOKEN`，写入 `docker/.env`。
-4. 主站应用栏新增「对位」（panel 打开 + 图标）。
-5. 发布验收：首页 200、`/api/health` 200 且 `ai:true`、示例 3 条能出分。
+- 应用仓库：`0bd69bd`（CI 构建并推 GHCR）。
+- 主站：`8738de6`（compose + `duiwei.caddy` + `deploy.sh` pull + 默认应用 + `.env.example`）。
+- DNS：DNSPod A 记录 `duiwei → 103.205.240.62`，RecordId `2447180381`。
+- AI 令牌：网关应用 `duiwei`，绑定 `chat-default` / `deepseek-v4.1-flash`，日限 300k tokens。
+- 服务器 `.env`：新增 `JD_AI_TOKEN`（备份 `.env.bak-before-duiwei-*`）。
 
 ## 明确不做 / 还没接
 
@@ -36,8 +40,10 @@
 - 不解析 PDF/Word 简历；不做账号体系、云端同步、投递跟踪。
 - 不做向量语义匹配；技能命中是词典 + 词边界。
 - 不折算股票/期权/签字费总包；薪资只按月薪算。
-- 没有 CI；镜像需手动 build/push。
 
 ## 回滚
 
-无数据库、无迁移。`docker compose stop duiwei`，移除 `duiwei.caddy` 后 `caddy reload`，应用栏删入口即可。
+1. 主站应用栏移除「对位」入口。
+2. `docker compose stop duiwei`；删除 `docker/caddy/sites/duiwei.caddy` 后 `caddy reload`。
+3. 可选：DNSPod 删除 `duiwei` A 记录；admin「AI 密钥」禁用 `duiwei` 令牌。
+4. 无数据库、无迁移；`duiwei-data` 卷只存匿名计数。
