@@ -478,7 +478,7 @@ async function runSearch() {
     state.elapsedMs = r.meta?.elapsedMs || Date.now() - t0
     setSearchProgress(`完成 · ${state.results.length} 条`, 100)
     const diag = (r.meta?.sources || [])
-      .map((s) => `${s.name} ${s.count}${s.error ? `（${s.error}）` : ''}`)
+      .map((s) => `${s.name} ${s.count}${s.error ? `（${s.message || s.error}）` : s.stale ? '（缓存）' : ''}`)
       .join(' · ')
     $('#search-note').textContent = `候选 ${r.meta?.candidates || 0} 条，补详情 ${r.meta?.detailed || 0} 条，返回 ${state.results.length} 条 · ${diag}`
     if (!state.results.length) {
