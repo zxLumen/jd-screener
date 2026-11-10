@@ -26,12 +26,21 @@
 - 来源：猎聘 **40** / LinkedIn **20** / V2EX **10** / 电鸭 **25**。
 - 结果：**89 强投 / 79 可投 / 63 观望**；9 猎聘 + 2 LinkedIn + 1 电鸭。
 - 链接导入：猎聘 **200 / 0.65s / 1878 字**；LinkedIn **200 / 0.67s / 8255 字**。
-- Playwright：上传 → 搜索 → 12 卡渲染，**0 console error**。
+- Playwright：上传 → 搜索 → 12 卡渲染，**0 console error**；390px 无横向溢出。
+
+## 线上验收（2026-11-10 10:00）
+
+- 首页 **200 / 11109B / 86ms**；health **200 / ai:true**；sources 5 可用 + 2 未接。
+- 真实搜索：**2.97s / 候选 43 / 详情 24 / 返回 12**；猎聘 40 / LinkedIn 20 / V2EX 10 / 电鸭 25。
+- 首条 **89 强投**（薪资 30-40K）；LinkedIn 2 条、电鸭 1 条进入结果。
+- 简历 TXT：**107ms / 12 技能 / 期望 30-45K**；猎聘链接导入 **0.61s / 1873 字**。
+- AI 精评：**5.6s / 规则 89 + AI 42 → 68**，`deepseek-v4.1-flash`。
+- 容器 **healthy / restarts=0 / 30.31MiB / 96MiB**；Caddy 冒烟 **24/24 ok**。
 
 ## 发布记录
 
 - 0.1.0：应用 `d8adcc4`，主站 `8738de6`；DNS `duiwei → 103.205.240.62`（RecordId `2447180381`）。
-- 0.2.0：应用提交见下；容器新增 `curl` + `poppler-utils`。
+- 0.2.0：应用提交 `017a452`，镜像 digest `sha256:fee0cd49…`；容器新增 `curl` + `poppler-utils`；本地 rollback tag `rollback-20261110-1000`。
 - AI 令牌：网关应用 `duiwei`，`chat-default` / `deepseek-v4.1-flash`，日限 300k tokens。
 
 ## 明确不做 / 还没接

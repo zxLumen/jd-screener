@@ -142,8 +142,8 @@ JD_MODEL=                                      # 可选；留空由网关按令�
 | 项 | 值 |
 | --- | --- |
 | 应用仓库 | `https://github.com/zxLumen/jd-screener`（public） |
-| 镜像 | `ghcr.io/zxlumen/jd-screener:latest`（public，匿名 pull） |
-| 应用提交 | 见 `STATUS.md` |
+| 镜像 | `ghcr.io/zxlumen/jd-screener:latest`（public，匿名 pull）；v0.2.0 digest `sha256:fee0cd49…` |
+| 应用提交 | `017a452`（v0.2.0） |
 | 主站提交 | `8738de6`（v0.1 上线时） |
 | 线上路由 | `duiwei.{$DOMAIN} → duiwei:8790` |
 | DNS | DNSPod A `duiwei → 103.205.240.62`（RecordId `2447180381`） |
@@ -202,7 +202,17 @@ deploy/                compose 服务片段、Caddy 路由、应用栏图标
 - 搜索（北京 · AI 应用工程师 · 4 源）：**候选 43 条，补详情 24 条，返回 12 条 / 4.6s**；来源 猎聘 40 / LinkedIn 20 / V2EX 10 / 电鸭 25。
 - 结果：**89 强投 / 79 可投 / 63 观望**，含 9 条猎聘 + 2 条 LinkedIn + 1 条电鸭；薪资 `30-50K`、`30-60K·18薪` 正常解析。
 - 链接导入：猎聘详情 **200 / 0.65s / 1878 字**；LinkedIn 公开职位 **200 / 0.67s / 8255 字**。
-- 浏览器端（Playwright）：上传简历 → 搜索 → 12 张结果卡渲染，**0 console error**。
+- 浏览器端（Playwright）：上传简历 → 搜索 → 12 张结果卡渲染，**0 console error**；390px 无横向溢出。
+
+线上验收（2026-11-10，`017a452` / digest `sha256:fee0cd49…`）：
+
+- 首页 **200 / 11109B / 86ms**；`/api/health` **200 / ai:true**；`/api/sources` 5 可用 + 2 未接。
+- 真实搜索（北京 · AI 应用工程师 · 4 源）：**200 / 2.97s / 候选 43 / 补详情 24 / 返回 12**；猎聘 40 / LinkedIn 20 / V2EX 10 / 电鸭 25。
+- 结果：**89 强投 / 85 强投 / 73 可投**；薪资 `30-40K`、`30-50K`、`60-90K·15薪` 正常。
+- 简历 TXT 上传：**200 / 107ms / 12 项技能 / 期望 30-45K**。
+- 猎聘链接导入：**200 / 0.61s / 1873 字**。
+- AI 精评（deepseek-v4.1-flash）：**200 / 5.6s / 规则 89 + AI 42 → 68 可投**，返回 3 条理由 + 6 个简历关键词。
+- 容器：**healthy / restarts=0 / 30.31MiB / 96MiB**；全站 Caddy 冒烟 **24/24 ok，app=0 / route=0**。
 
 ## 版本
 

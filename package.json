@@ -1,6 +1,6 @@
 {
   "name": "jd-screener",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "description": "对位 · AI 智能筛选 JD（零依赖自托管，给求职者）",

@@ -12,6 +12,10 @@
       ZX_AI_APP_TOKEN: ${JD_AI_TOKEN:-}
       # 可选：留空由网关按令牌/密钥决定
       JD_MODEL: ${JD_MODEL:-}
+      # 搜索/简历解析限额（不填用服务端默认）
+      JD_SEARCH_RATE: ${JD_SEARCH_RATE:-30}
+      JD_SEARCH_DAILY: ${JD_SEARCH_DAILY:-300}
+      JD_RESUME_RATE: ${JD_RESUME_RATE:-20}
     volumes:
       - duiwei-data:/app/data
     expose:
