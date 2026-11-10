@@ -170,8 +170,8 @@ JD_MODEL=                                      # 可选；留空由网关按令�
 | 项 | 值 |
 | --- | --- |
 | 应用仓库 | `https://github.com/zxLumen/jd-screener`（public） |
-| 镜像 | `ghcr.io/zxlumen/jd-screener:latest`（public，匿名 pull）；v0.2.2 digest `sha256:cb46c11e…` |
-| 应用提交 | `3c6d450`（v0.2.2） |
+| 镜像 | `ghcr.io/zxlumen/jd-screener:latest`（public，匿名 pull）；v0.2.2 digest `sha256:d1085d41…` |
+| 应用提交 | `4b4dcdc`（v0.2.2） |
 | 主站提交 | `8738de6`（v0.1 上线时） |
 | 线上路由 | `duiwei.{$DOMAIN} → duiwei:8790` |
 | DNS | DNSPod A `duiwei → 103.205.240.62`（RecordId `2447180381`） |
@@ -237,10 +237,10 @@ deploy/                compose 服务片段、Caddy 路由、应用栏图标
 - 脉脉（公开页）：**1.66s / 候选 18 / 返回 12**，标题/公司/城市/薪资正常；部分详情走 JSON-LD，失败标「按摘要算」。
 - BOSS（假 cookie 验证失败路径）：`/api/search` 返回 **0 条 + `risk`**，文案「code 37：cookie 失效或 UA/IP 不一致」；管理接口未带令牌 **401**，保存后只返回掩码。
 
-线上验收（2026-11-10，`3c6d450` / digest `sha256:cb46c11e…`）：
+线上验收（2026-11-10，`4b4dcdc` / digest `sha256:d1085d41…`）：
 
 - 首页 **200 / 11109B / 86ms**；`/api/health` **200 / v0.2.2 / ai:true**；`/api/sources` **7 个可用源（默认 6）+ 3 个 blocked** + BOSS 未配置。
-- 真实搜索（北京 · AI 应用工程师 · 6 源）：冷缓存 **3.03s**，命中缓存 **0.36s**；候选 68 / 返回 12。猎聘 40 / LinkedIn 10 / V2EX 10 / 电鸭 25 / 脉脉 18 / 职友集 10，**6 个源都有结果**。
+- 真实搜索（北京 · AI 应用工程师 · 6 源）：冷缓存 **3.8s**，命中缓存 **0.42s**；候选 69 / 返回 12。猎聘 40 / LinkedIn 10 / V2EX 10 / 电鸭 25 / 脉脉 18 / 职友集 10，**6 个源都有结果**。
 - 结果：**80 强投（脉脉）/ 80（猎聘）/ 78（脉脉）**；4 条脉脉 + 7 条猎聘 + 1 条 LinkedIn；薪资 `30-60K`、`45-75K·16薪`。
 - 脉脉单源：**1.08s / 候选 18 / 返回 12**，缓存命中 **0.27s**；详情 JSON-LD 成功，失败标「按摘要算」。
 - BOSS 假 cookie 失败路径：**0.54s / 0 条 / `risk`**，文案「code 37：cookie 失效或 UA/IP 不一致」；未带令牌 **401**，保存后只返回掩码，清除后恢复未配置。
