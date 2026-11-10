@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>对位 · AI 智能筛选 JD</title>
+    <meta
+      name="description"
+      content="把一堆 JD 粘进来，按你的画像算匹配分：硬门槛、技能命中、风险信号、简历关键词，一次看清。简历只在本地。"
+    />
+    <meta name="theme-color" content="#06120c" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="对位首页">
+        <span class="logo" aria-hidden="true">对</span>
+        <span class="brand-text">
+          <strong>对位</strong>
+          <small>AI 智能筛选 JD</small>
+        </span>
+      </a>
+      <div class="top-actions">
+        <span class="privacy" title="画像与 JD 只存在这台设备的 localStorage，服务端不落库">🔒 简历只在本地</span>
+        <span id="ai-status" class="ai-status" data-on="unknown">检测中…</span>
+        <button id="btn-help" class="ghost sm" type="button">怎么用</button>
+      </div>
+    </header>
+
+    <main>
+      <section class="hero">
+        <h1>别海投。<span>先筛一遍。</span></h1>
+        <p>
+          粘贴 JD，按你的画像算匹配分：硬门槛、技能命中、风险信号、简历关键词，一次看清。
+          规则分永远可用，AI 只是加分项。
+        </p>
+      </section>
+
+      <div class="layout">
+        <aside class="card profile-card">
+          <div class="card-head">
+            <h2><span class="step">1</span> 我的画像</h2>
+            <button id="btn-sample-profile" class="link" type="button">填示例</button>
+          </div>
+          <form id="profile-form" autocomplete="off">
+            <div class="field">
+              <label for="p-title">目标岗位</label>
+              <input id="p-title" name="title" type="text" placeholder="例：AI 应用工程师 / 后端工程师" maxlength="60" />
+            </div>
+            <div class="grid-2">
+              <div class="field">
+                <label for="p-years">工作年限</label>
+                <input id="p-years" name="years" type="number" min="0" max="40" step="0.5" placeholder="5" />
+              </div>
+              <div class="field">
+                <label for="p-edu">最高学历</label>
+                <select id="p-edu" name="education">
+                  <option value="大专">大专</option>
+                  <option value="本科" selected>本科</option>
+                  <option value="硕士">硕士</option>
+                  <option value="博士">博士</option>
+                  <option value="不限">不限</option>
+                </select>
+              </div>
+            </div>
+            <div class="field">
+              <label for="p-city">期望城市</label>
+              <input id="p-city" name="city" type="text" placeholder="北京 / 上海（可多个）" maxlength="40" />
+            </div>
+            <div class="field">
+              <label for="p-smin">期望月薪（K）</label>
+              <div class="range-row">
+                <input id="p-smin" name="salaryMin" type="number" min="0" max="500" step="1" placeholder="25" />
+                <span>—</span>
+                <input id="p-smax" name="salaryMax" type="number" min="0" max="500" step="1" placeholder="40" />
+              </div>
+            </div>
+            <label class="check">
+              <input id="p-remote" name="remoteOk" type="checkbox" />
+              <span>接受远程</span>
+            </label>
+            <div class="field">
+              <label for="p-resume">技能 / 简历摘要 <span class="muted">（可选）</span></label>
+              <textarea
+                id="p-resume"
+                name="resumeText"
+                rows="5"
+                maxlength="12000"
+                placeholder="粘贴简历或技能清单，自动抽技能。&#10;例：Python、Ray、Kubernetes、LLM 应用、FastAPI……"
+              ></textarea>
+            </div>
+          </form>
+          <div id="skill-preview" class="skill-preview" aria-live="polite"></div>
+        </aside>
+
+        <section class="card jd-card">
+          <div class="card-head">
+            <h2><span class="step">2</span> 待筛 JD</h2>
+            <span id="jd-count" class="hint">0 条</span>
+          </div>
+          <textarea
+            id="jd-input"
+            rows="8"
+            maxlength="20000"
+            placeholder="把 JD 粘在这里。&#10;多条之间用一行 --- 分隔，一次最多 8 条。"
+          ></textarea>
+          <div class="row">
+            <button id="btn-add" class="primary" type="button">添加 JD</button>
+            <button id="btn-sample" class="ghost" type="button">载入 3 条示例</button>
+            <button id="btn-clear" class="ghost danger" type="button">清空</button>
+          </div>
+          <div id="jd-list" class="jd-list"></div>
+          <div class="run-bar">
+            <button id="btn-run" class="run" type="button" disabled>开始筛选</button>
+            <label class="check inline">
+              <input id="use-ai" type="checkbox" checked />
+              <span>用 AI 深评</span>
+            </label>
+          </div>
+          <div id="progress-wrap" class="progress-wrap" hidden>
+            <div class="progress"><div id="progress-bar"></div></div>
+            <span id="progress-text">0 / 0</span>
+          </div>
+          <p id="run-note" class="note"></p>
+        </section>
+      </div>
+
+      <section id="results" class="results" hidden>
+        <div class="results-head">
+          <div>
+            <h2><span class="step">3</span> 筛选结果</h2>
+            <p id="summary" class="summary"></p>
+          </div>
+          <div class="row">
+            <button id="btn-copy" class="ghost" type="button">复制 Markdown</button>
+            <button id="btn-csv" class="ghost" type="button">下载 CSV</button>
+          </div>
+        </div>
+        <div id="filters" class="filters" role="group" aria-label="按结论筛选"></div>
+        <div id="result-list" class="result-list"></div>
+      </section>
+    </main>
+
+    <footer>
+      <span>对位 v0.1 · 自托管 · 零依赖</span>
+      <span class="foot-links">
+        <button id="btn-clear-local" class="link" type="button">清除本地数据</button>
+        <span>·</span>
+        <span>结果仅供参考，不构成求职承诺</span>
+      </span>
+    </footer>
+
+    <div id="toast" class="toast" hidden role="status" aria-live="polite"></div>
+
+    <dialog id="help" class="help">
+      <h3>怎么用</h3>
+      <ol>
+        <li>填画像：岗位、年限、学历、城市、期望薪资。简历摘要只用来抽技能，存在浏览器本地。</li>
+        <li>粘 JD：多条用一行 <code>---</code> 分隔，一次最多 8 条。</li>
+        <li>点「开始筛选」：规则层先算硬门槛和技能覆盖，再可选调 AI 深评。</li>
+      </ol>
+      <h4>分数怎么来</h4>
+      <p>
+        规则分 = 技能 45% + 年限 20% + 薪资 15% + 学历 10% + 城市 10%，再扣风险信号（外包、996、年龄限制等，最多扣 30）。
+        年限或学历硬门槛不过，分数封顶 45–50。AI 分只占最终分 45%，规则分仍占 55%。
+      </p>
+      <h4>隐私</h4>
+      <p>画像与 JD 只存在这台设备的 localStorage；服务端不保存正文、不记录 IP，只累计匿名次数。</p>
+      <h4>边界</h4>
+      <p>不抓招聘网站、不投递、不解析 PDF；JD 里没写的年限/薪资会标「未写」，不猜。</p>
+      <div class="row end">
+        <button id="btn-help-close" class="primary" type="button">知道了</button>
+      </div>
+    </dialog>
+
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>

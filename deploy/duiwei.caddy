@@ -1,0 +1,7 @@
+# 对位(独立容器:AI 智能筛选 JD;见 jd-screener 仓库)
+# 复制到 zxLumen-Blog/docker/caddy/sites/duiwei.caddy,再 caddy reload。
+duiwei.{$DOMAIN} {
+	import accesslog
+	import webapp
+	reverse_proxy duiwei:8790
+}
