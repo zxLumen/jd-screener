@@ -45,7 +45,7 @@ const state = {
   uploading: false,
   aiBusy: new Set(),
   sources: [],
-  unavailable: [],
+  unavailable: null,
   lastTitle: '',
 }
 
@@ -393,7 +393,7 @@ function clearJds() {
 /* ---------------- 搜索 ---------------- */
 function renderSources() {
   const list = state.sources.length ? state.sources : FALLBACK_SOURCES
-  const off = state.unavailable.length ? state.unavailable : FALLBACK_UNAVAILABLE
+  const off = state.unavailable ?? FALLBACK_UNAVAILABLE
   $('#source-picker').innerHTML = [
     ...list.map(
       (s) => `<label class="src-opt">
@@ -634,6 +634,160 @@ async function aiReviewTop(n) {
   }
   renderResults()
   $('#search-note').textContent = `AI 精评完成 ${top.length} 条（规则分仍在结果里）`
+}
+
+/* ---------------- 来源登录 ---------------- */
+const ADMIN_KEY = 'duiwei.admin.v1'
+
+function getAdminToken() {
+  try {
+    return sessionStorage.getItem(ADMIN_KEY) || ''
+  } catch {
+    return ''
+  }
+}
+
+function setAdminToken(v) {
+  try {
+    if (v) sessionStorage.setItem(ADMIN_KEY, v)
+    else sessionStorage.removeItem(ADMIN_KEY)
+  } catch {
+    /* 隐私模式忽略 */
+  }
+}
+
+async function adminFetch(url, opts = {}) {
+  const token = getAdminToken()
+  const r = await fetch(url, {
+    ...opts,
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Admin-Token': token,
+      ...(opts.headers || {}),
+    },
+  })
+  let data = null
+  try {
+    data = await r.json()
+  } catch {
+    /* ignore */
+  }
+  if (!r.ok) {
+    const msg =
+      r.status === 401
+        ? '管理令牌不对'
+        : r.status === 503
+          ? '服务器未配置 JD_ADMIN_TOKEN'
+          : data?.error || `HTTP ${r.status}`
+    throw new Error(msg)
+  }
+  return data
+}
+
+function renderAuthStatus(data) {
+  const box = $('#auth-status')
+  if (!data?.auth?.length) {
+    box.textContent = '没有可配置的来源。'
+    return
+  }
+  box.innerHTML = data.auth
+    .map((a) => {
+      const name = a.id === 'boss' ? 'BOSS 直聘' : '脉脉'
+      const state = a.configured ? '已配置' : '未配置'
+      const mask = a.hasCookie ? ` · ${esc(a.cookieMasked)}` : ''
+      const ok = a.lastOkAt ? ` · 上次成功 ${fmtTime(a.lastOkAt)}` : ''
+      const err = a.lastError ? ` · 最近错误：${esc(a.lastError)}` : ''
+      return `<div>${name}：<b>${state}</b>${mask}${ok}${err}</div>`
+    })
+    .join('')
+  const boss = data.auth.find((a) => a.id === 'boss')
+  const mm = data.auth.find((a) => a.id === 'maimai')
+  if (boss) {
+    const el = $('#auth-boss-state')
+    el.textContent = boss.configured ? `已配置 ${boss.cookieMasked}` : '未配置'
+    el.className = boss.configured ? 'tag hit' : 'tag'
+  }
+  if (mm) {
+    const el = $('#auth-maimai-state')
+    if (el) {
+      el.textContent = mm.hasCookie ? `公开 + 登录态 ${mm.cookieMasked}` : '公开岗位页'
+      el.className = mm.hasCookie ? 'tag hit' : 'tag'
+    }
+  }
+}
+
+async function refreshSources() {
+  try {
+    const r = await fetch('/api/config')
+    const cfg = await r.json()
+    state.sources = Array.isArray(cfg.sources) ? cfg.sources : []
+    state.unavailable = Array.isArray(cfg.unavailableSources) ? cfg.unavailableSources : []
+    renderSources()
+  } catch {
+    /* 忽略，保留现有列表 */
+  }
+}
+
+async function loadAuthStatus() {
+  const token = $('#auth-token').value.trim()
+  setAdminToken(token)
+  if (!token) {
+    $('#auth-status').textContent = '填入 JD_ADMIN_TOKEN 后点这里查询。'
+    return
+  }
+  $('#auth-status').textContent = '查询中…'
+  try {
+    const d = await adminFetch('/api/admin/sources')
+    renderAuthStatus(d)
+    await refreshSources()
+  } catch (e) {
+    $('#auth-status').textContent = e.message
+  }
+}
+
+async function saveSourceAuth(id) {
+  const cookie = id === 'boss' ? $('#auth-boss-cookie').value.trim() : $('#auth-maimai-cookie').value.trim()
+  const ua = id === 'boss' ? $('#auth-boss-ua').value.trim() : ''
+  if (id === 'boss' && !cookie) return toast('先粘贴 BOSS cookie')
+  if (id === 'maimai' && !cookie) return toast('脉脉公开页不用 cookie；要保存就先粘贴')
+  try {
+    const d = await adminFetch('/api/admin/sources', {
+      method: 'POST',
+      body: JSON.stringify({ source: id, cookie, ua }),
+    })
+    const full = await adminFetch('/api/admin/sources')
+    renderAuthStatus(full)
+    await refreshSources()
+    if (id === 'boss') $('#auth-boss-cookie').value = ''
+    else $('#auth-maimai-cookie').value = ''
+    toast(`${id === 'boss' ? 'BOSS' : '脉脉'}登录态已保存，下次搜索生效`)
+  } catch (e) {
+    toast(`保存失败：${e.message}`, 3800)
+  }
+}
+
+async function clearSourceAuth(id) {
+  if (!window.confirm(`清除 ${id === 'boss' ? 'BOSS' : '脉脉'} 的登录态？`)) return
+  try {
+    const d = await adminFetch('/api/admin/sources', {
+      method: 'POST',
+      body: JSON.stringify({ source: id, clear: true }),
+    })
+    const full = await adminFetch('/api/admin/sources')
+    renderAuthStatus(full)
+    await refreshSources()
+    toast('已清除')
+  } catch (e) {
+    toast(`清除失败：${e.message}`, 3800)
+  }
+}
+
+async function openAuth() {
+  const dlg = $('#auth')
+  $('#auth-token').value = getAdminToken()
+  dlg.showModal()
+  if ($('#auth-token').value) await loadAuthStatus()
+  else $('#auth-status').textContent = '填入 JD_ADMIN_TOKEN 后点这里查询。'
 }
 
 /* ---------------- 结果 ---------------- */
@@ -942,6 +1096,21 @@ function bind() {
   })
 
   $('#btn-search').addEventListener('click', runSearch)
+  $('#btn-auth').addEventListener('click', openAuth)
+  $('#btn-auth-close').addEventListener('click', () => $('#auth').close())
+  $('#auth-token').addEventListener('change', loadAuthStatus)
+  $('#auth').addEventListener('click', (e) => {
+    if (e.target === $('#auth')) $('#auth').close()
+  })
+  $('#auth').addEventListener('click', (e) => {
+    const save = e.target.closest('[data-auth-save]')
+    if (save) {
+      saveSourceAuth(save.dataset.authSave)
+      return
+    }
+    const clear = e.target.closest('[data-auth-clear]')
+    if (clear) clearSourceAuth(clear.dataset.authClear)
+  })
   $('#q').addEventListener('input', () => ($('#q').dataset.auto = '0'))
   $('#q-city').addEventListener('input', () => ($('#q-city').dataset.auto = '0'))
   $('#source-picker').addEventListener('change', updateSourceStatus)

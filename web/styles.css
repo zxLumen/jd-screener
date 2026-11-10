@@ -1302,3 +1302,51 @@ a.src-tag:hover {
   color: var(--amber);
   font-size: 11px;
 }
+
+/* ---------------- 来源登录 ---------------- */
+.card-head-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.auth-dialog {
+  width: min(720px, calc(100vw - 32px));
+  max-height: min(86vh, 900px);
+  overflow: auto;
+}
+
+.auth-status {
+  margin: 10px 0 4px;
+  padding: 9px 11px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--fg-dim);
+  font-size: 11px;
+  line-height: 1.6;
+  background: rgba(0, 0, 0, 0.2);
+  word-break: break-all;
+}
+
+.auth-block {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.auth-block h4 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 8px;
+}
+
+.auth-block textarea,
+.auth-block input {
+  margin-bottom: 8px;
+}
+
+.tag.hit {
+  color: var(--accent);
+  border-color: var(--border-strong);
+}

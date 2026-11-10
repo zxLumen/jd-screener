@@ -107,7 +107,10 @@
         <section class="card search-card">
           <div class="card-head">
             <h2><span class="step">2</span> 搜岗位</h2>
-            <span id="source-status" class="hint">来源加载中…</span>
+            <span class="card-head-actions">
+              <span id="source-status" class="hint">来源加载中…</span>
+              <button id="btn-auth" class="link" type="button">来源登录</button>
+            </span>
           </div>
           <div class="search-grid">
             <div class="field">
@@ -198,7 +201,7 @@
     </main>
 
     <footer>
-      <span>对位 v0.2 · 自托管 · 5 个公开来源</span>
+      <span>对位 v0.2 · 自托管 · 6 个公开来源 + BOSS cookie</span>
       <span class="foot-links">
         <button id="btn-clear-local" class="link" type="button">清除本地数据</button>
         <span>·</span>
@@ -208,13 +211,50 @@
 
     <div id="toast" class="toast" hidden role="status" aria-live="polite"></div>
 
+    <dialog id="auth" class="help auth-dialog">
+      <h3>来源登录</h3>
+      <p class="muted">
+        BOSS 直聘必须带登录 cookie；脉脉公开岗位页无需登录。cookie 只存在服务器 <code>data/sources-auth.json</code>（0600），
+        接口只回掩码，不回原文。管理令牌在服务器 <code>docker/.env</code> 的 <code>JD_ADMIN_TOKEN</code>。
+      </p>
+      <div class="field">
+        <label for="auth-token">管理令牌</label>
+        <input id="auth-token" type="password" placeholder="JD_ADMIN_TOKEN" autocomplete="off" />
+      </div>
+      <div id="auth-status" class="auth-status">填入令牌后查询状态。</div>
+
+      <div class="auth-block">
+        <h4>BOSS 直聘 <span id="auth-boss-state" class="tag">未配置</span></h4>
+        <textarea id="auth-boss-cookie" rows="3" placeholder="粘贴浏览器里 www.zhipin.com 的完整 Cookie（含 __zp_stoken__ / bst / wt2）"></textarea>
+        <input id="auth-boss-ua" type="text" placeholder="UA：与生成 cookie 的浏览器一致（可选，默认 Chrome Windows）" />
+        <div class="row">
+          <button class="primary" type="button" data-auth-save="boss">保存 BOSS</button>
+          <button class="ghost" type="button" data-auth-clear="boss">清除</button>
+        </div>
+      </div>
+
+      <div class="auth-block">
+        <h4>脉脉 <span id="auth-maimai-state" class="tag">公开岗位页</span></h4>
+        <textarea id="auth-maimai-cookie" rows="2" placeholder="可选：登录 cookie；不填也能搜公开岗位"></textarea>
+        <div class="row">
+          <button class="primary" type="button" data-auth-save="maimai">保存脉脉</button>
+          <button class="ghost" type="button" data-auth-clear="maimai">清除</button>
+        </div>
+      </div>
+
+      <div class="row end">
+        <button id="btn-auth-close" class="ghost" type="button">关闭</button>
+      </div>
+    </dialog>
+
     <dialog id="help" class="help">
       <h3>怎么用</h3>
       <ol>
         <li><b>上传简历</b>：PDF / DOCX / TXT，自动抽岗位、年限、学历、城市、技能，填进左侧画像。文件只在内存解析，不落库。</li>
         <li><b>搜岗位</b>：关键词 + 城市，选来源。猎聘按城市搜；LinkedIn 用 guest 公开接口；V2EX/电鸭用公开 API。</li>
         <li><b>看结果</b>：规则分先排，点「AI 精评」再调模型；可打开原帖、导出 Markdown/CSV。</li>
-        <li><b>手动粘贴</b>：BOSS/脉脉等没有公开接口的来源，复制 JD 进来，或贴一条公开链接导入。</li>
+        <li><b>来源登录</b>：BOSS 需要在「来源登录」里粘贴一次 cookie + 同浏览器 UA；脉脉用公开岗位页，无需登录。cookie 失效会明确报错。</li>
+        <li><b>手动粘贴</b>：任何来源都可以复制 JD 进来，或贴一条公开链接导入。</li>
       </ol>
       <h4>分数怎么来</h4>
       <p>
@@ -223,8 +263,9 @@
       </p>
       <h4>来源边界</h4>
       <p>
-        已接：猎聘、LinkedIn、V2EX 酷工作、电鸭社区、Remote OK（英文远程，默认关）。
-        <b>未接 BOSS 直聘和脉脉</b>：前者接口返回 code 37（环境异常），后者搜索强制登录；不硬闯验证码，也不伪造数据。
+        已接：猎聘、LinkedIn、V2EX 酷工作、电鸭社区、脉脉公开岗位页、Remote OK（英文远程，默认关）。
+        <b>BOSS 直聘需要登录 cookie</b>：在「来源登录」粘贴一次，UA 要与登录浏览器一致；cookie 失效会返回 code 37。
+        不硬闯验证码，也不伪造数据。
       </p>
       <h4>隐私</h4>
       <p>画像、简历、JD 只存在这台设备的 localStorage；服务端解析上传文件后即丢弃，不保存正文、不记录 IP，只累计匿名次数。</p>

@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { parseLiepinList, parseLinkedinList } from '../lib/sources.js'
+import { parseLiepinList, parseLinkedinList, parseBossList, parseMaimaiListing } from '../lib/sources.js'
 
 const LIEPIN = `
 <div class="job-list-item" >
@@ -70,4 +70,85 @@ test('LinkedIn 列表解析：id/公司/地点/日期', () => {
   assert.equal(items[0].postedAt, '2026-11-08')
   assert.equal(items[0].url, 'https://www.linkedin.com/jobs/view/ai-engineer-at-foo-4465379983')
   assert.equal(items[1].city, 'Shanghai')
+})
+
+const BOSS = {
+  code: 0,
+  zpData: {
+    jobList: [
+      {
+        encryptJobId: 'abc123',
+        securityId: 'sec-1',
+        lid: 'lid-1',
+        jobName: 'AI 应用工程师',
+        salaryDesc: '30-50K·15薪',
+        cityName: '北京',
+        areaDistrict: '海淀区',
+        businessDistrict: '中关村',
+        jobExperience: '3-5年',
+        jobDegree: '本科',
+        jobLabels: ['Python', 'RAG'],
+        skills: ['LangChain', 'Milvus'],
+        welfareList: ['五险一金'],
+        brandName: '某 AI 公司',
+        brandIndustry: '人工智能',
+      },
+    ],
+  },
+}
+
+test('BOSS 列表解析：字段与链接', () => {
+  const items = parseBossList(BOSS)
+  assert.equal(items.length, 1)
+  const j = items[0]
+  assert.equal(j.source, 'boss')
+  assert.equal(j.id, 'abc123')
+  assert.equal(j.title, 'AI 应用工程师')
+  assert.equal(j.company, '某 AI 公司')
+  assert.equal(j.city, '北京')
+  assert.equal(j.salaryRaw, '30-50K·15薪')
+  assert.match(j.url, /job_detail\/abc123\.html/)
+  assert.match(j.text, /LangChain/)
+})
+
+const NEXT = `<script id="__NEXT_DATA__" type="application/json">${JSON.stringify({
+  props: {
+    pageProps: {
+      listing: {
+        total: 2,
+        page: 1,
+        pageSize: 50,
+        items: [
+          {
+            id: 'maimai:job:1',
+            title: '大模型应用工程师',
+            detailUrl: 'https://maimai.cn/n/job/geo/1',
+            companyName: '某公司',
+            city: '北京',
+            salaryText: '30k-50k·15薪',
+            experienceText: '3-5年',
+            educationText: '本科及以上',
+            tags: ['RAG', 'Agent'],
+          },
+          {
+            id: 'maimai:job:2',
+            title: '销售总监',
+            detailUrl: 'https://maimai.cn/n/job/geo/2',
+            companyName: '某公司',
+            city: '上海',
+            salaryText: '20k-40k',
+            tags: [],
+          },
+        ],
+      },
+    },
+  },
+})}</script>`
+
+test('脉脉公开岗位页解析 __NEXT_DATA__', () => {
+  const listing = parseMaimaiListing(NEXT)
+  assert.equal(listing.total, 2)
+  assert.equal(listing.items.length, 2)
+  assert.equal(listing.items[0].title, '大模型应用工程师')
+  assert.equal(listing.items[0].salaryText, '30k-50k·15薪')
 })

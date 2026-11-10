@@ -16,6 +16,8 @@
       JD_SEARCH_RATE: ${JD_SEARCH_RATE:-30}
       JD_SEARCH_DAILY: ${JD_SEARCH_DAILY:-300}
       JD_RESUME_RATE: ${JD_RESUME_RATE:-20}
+      # 来源登录令牌（BOSS/脉脉 cookie 管理）；不填则网页「来源登录」关闭
+      JD_ADMIN_TOKEN: ${JD_ADMIN_TOKEN:-}
     volumes:
       - duiwei-data:/app/data
     expose:

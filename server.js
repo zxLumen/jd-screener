@@ -3,6 +3,7 @@
  * 零依赖 Node 原生 http：同时发静态页与 /api。
  */
 import http from 'node:http'
+import crypto from 'node:crypto'
 import path from 'node:path'
 import { promises as fs, mkdirSync, writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
@@ -13,12 +14,13 @@ import * as llm from './lib/llm.js'
 import { collect, hydrate, publicSources, unavailableSources, fetchJdFromUrl, SOURCES } from './lib/sources.js'
 import { extractResume, guessTitle, guessSalary, ResumeError, MAX_RESUME_BYTES } from './lib/resume.js'
 import { FetchError } from './lib/http.js'
+import { initAuth, allAuthStatus, saveAuth, clearAuth } from './lib/auth.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const WEB_DIR = path.join(__dirname, 'web')
 const DATA_DIR = path.join(__dirname, 'data')
 const STATS_FILE = path.join(DATA_DIR, 'stats.json')
-const VERSION = '0.2.0'
+const VERSION = '0.2.1'
 const PORT = Number(process.env.PORT) || 8790
 const MAX_JDS = 8
 const MAX_JD_CHARS = 20000
@@ -253,6 +255,24 @@ async function serveStatic(req, res, pathname) {
   }
 }
 
+// ---------------- 管理接口鉴权 ----------------
+const ADMIN_TOKEN = (process.env.JD_ADMIN_TOKEN || '').trim()
+
+function safeEqual(a, b) {
+  const x = Buffer.from(String(a || ''))
+  const y = Buffer.from(String(b || ''))
+  if (!x.length || x.length !== y.length) return false
+  return crypto.timingSafeEqual(x, y)
+}
+
+function requireAdmin(req, ip) {
+  if (!ADMIN_TOKEN) throw new HttpError(503, '服务端未配置 JD_ADMIN_TOKEN，来源登录不可用')
+  if (!allow(ip, 'admin', 30, 60 * 1000)) throw new HttpError(429, '尝试太频繁')
+  const header = String(req.headers['x-admin-token'] || '')
+  const bearer = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '')
+  if (!safeEqual(header || bearer, ADMIN_TOKEN)) throw new HttpError(401, '管理令牌不对')
+}
+
 // ---------------- 业务 ----------------
 function validateProfile(input) {
   if (!input || typeof input !== 'object') throw new HttpError(400, '缺少候选人画像')
@@ -462,7 +482,7 @@ async function handleApi(req, res, pathname) {
       sources: publicSources(),
       unavailableSources: unavailableSources(),
       privacy:
-        '画像、简历与 JD 只存浏览器 localStorage；服务端解析上传文件后即丢弃，不落库，只记匿名计数',
+        '画像、简历与 JD 只存浏览器 localStorage；服务端解析后丢弃正文，只存来源 cookie（data/sources-auth.json，0600，接口只回掩码）与匿名计数',
     })
   }
 
@@ -472,6 +492,25 @@ async function handleApi(req, res, pathname) {
 
   if (req.method === 'GET' && pathname === '/api/sources') {
     return sendJson(res, 200, { ok: true, sources: publicSources(), unavailable: unavailableSources() })
+  }
+
+  if (req.method === 'GET' && pathname === '/api/admin/sources') {
+    requireAdmin(req, ip)
+    return sendJson(res, 200, { ok: true, auth: allAuthStatus(), sources: publicSources() })
+  }
+
+  if (req.method === 'POST' && pathname === '/api/admin/sources') {
+    requireAdmin(req, ip)
+    const body = await readJson(req, 64 * 1024)
+    const source = String(body.source || '')
+    if (!['boss', 'maimai'].includes(source)) throw new HttpError(400, '只支持 boss / maimai')
+    let status
+    try {
+      status = body.clear ? await clearAuth(source) : await saveAuth(source, { cookie: body.cookie, ua: body.ua })
+    } catch (e) {
+      throw new HttpError(400, e.message || '保存失败')
+    }
+    return sendJson(res, 200, { ok: true, auth: status, sources: publicSources() })
   }
 
   if (req.method === 'POST' && pathname === '/api/resume') {
@@ -568,7 +607,7 @@ async function handleApi(req, res, pathname) {
     const candidates = []
     for (const item of items) {
       if (!item?.text || item.text.length < 30) continue
-      if (!['liepin', 'linkedin'].includes(item.source) && !matchesQuery(item.text, input.query)) continue
+      if (!['liepin', 'linkedin', 'boss', 'maimai'].includes(item.source) && !matchesQuery(item.text, input.query)) continue
       const r = makeResult(input.profile, item, candidates.length)
       if (input.city === '远程') {
         if (r.city !== '远程' && !/远程|remote/i.test(item.text)) continue
@@ -786,6 +825,7 @@ server.requestTimeout = 120_000
 server.headersTimeout = 30_000
 
 await loadStats()
+await initAuth()
 server.listen(PORT, () => {
   const cfg = llm.gatewayConfig()
   console.log(`[jd] 对位 v${VERSION} on :${PORT} · AI ${cfg.configured ? 'on' : 'off(规则模式)'}`)

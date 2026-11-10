@@ -1,6 +1,6 @@
 # 对位 · AI 智能筛选 JD
 
-给求职者用的岗位搜索 + 匹配器：**不用一条条粘 JD**。从猎聘、LinkedIn、V2EX、电鸭等公开来源搜岗位，上传简历自动解析，按硬门槛、技能命中、风险信号算匹配分，再告诉你**该投哪几条、简历缺什么、面试问什么**。
+给求职者用的岗位搜索 + 匹配器：**不用一条条粘 JD**。从猎聘、LinkedIn、V2EX、电鸭、脉脉等公开来源搜岗位，BOSS 直聘用一次登录 cookie 接入；上传简历自动解析，按硬门槛、技能命中、风险信号算匹配分，再告诉你**该投哪几条、简历缺什么、面试问什么**。
 
 - 零构建：Node 原生 `http` + 原生 ES module 前端，没有 `npm install`，没有打包步骤。
 - 规则优先：年限/学历/城市/薪资/技能/风险信号全部确定性计算，**不配 AI 也能用**。
@@ -20,7 +20,7 @@ PORT=8790 node server.js
 打开 `http://localhost:8790/`。不配 AI 令牌时自动进入**规则模式**，秒出结果。
 
 ```bash
-node --test test/*.test.js   # 35 个测试
+node --test test/*.test.js   # 40 个测试
 ```
 
 > PDF 解析优先用 `pdftotext`（容器内已装 poppler-utils），没有时退回内置抽取；DOCX 用内置 zip 解压，不依赖 npm 包。猎聘用 `curl` 抓取（见下方「来源」）。
@@ -30,8 +30,9 @@ node --test test/*.test.js   # 35 个测试
 1. **上传简历**：PDF / DOCX / TXT / MD / HTML，≤5MB。自动抽目标岗位、年限、学历、城市、技能，填进左侧画像；文本可手改。
 2. **搜岗位**：填关键词 + 城市，勾选来源。服务端并行抓列表，先按标题/卡片信息粗排，再给入围岗位补详情正文，最后用完整 JD 算分。
 3. **看结果**：按匹配分排序；可筛「强投 / 可投 / 观望 / 不建议」或「只看硬门槛通过」。每条带原帖链接，点「AI 精评」可单独调模型。
-4. **手动粘贴**：BOSS/脉脉等没有公开接口的来源，复制 JD 进来；也支持粘贴一条公开 JD 链接（猎聘、LinkedIn、公司招聘页）自动抓正文。
-5. **导出**：复制 Markdown 或下载 CSV（带 BOM，Excel 直接打开，含来源与链接）。
+4. **来源登录**：BOSS 在「来源登录」粘贴一次 cookie + 同浏览器 UA；脉脉用公开岗位页，无需登录。cookie 失效会明确报错。
+5. **手动粘贴**：任何来源都可以复制 JD 进来；也支持粘贴一条公开 JD 链接（猎聘、LinkedIn、公司招聘页）自动抓正文。
+6. **导出**：复制 Markdown 或下载 CSV（带 BOM，Excel 直接打开，含来源与链接）。
 
 结果里每条 JD 包含：
 
@@ -51,8 +52,8 @@ node --test test/*.test.js   # 35 个测试
 | V2EX 酷工作 | 公开 API | 创业公司/远程岗偏多，详情在列表里 |
 | 电鸭社区 | 公开 API | 远程/兼职为主，默认按远程处理 |
 | Remote OK | 公开 API | 英文远程岗，默认关闭；使用时保留回链 |
-| **BOSS 直聘** | **未接** | 接口返回 `code 37`（环境异常），需要登录态与风控 cookie，不硬闯 |
-| **脉脉** | **未接** | 职位搜索强制登录，无公开接口 |
+| BOSS 直聘 | 登录 cookie（「来源登录」配置） | 搜索接口带 cookie + 同 UA；失效会返回 `code 37`，页面明确报错 |
+| 脉脉 | 公开岗位页 | Next.js `__NEXT_DATA__` 列表 + JSON-LD 详情；无需登录，按方向+城市筛，关键词本地过滤 |
 
 没有账号体系、不自动投递、不绕验证码。源失败会在结果页标出原因（如 `429`、`need-city`、`empty`），不会拿假数据凑数。
 
@@ -80,7 +81,9 @@ node --test test/*.test.js   # 35 个测试
 | --- | --- | --- |
 | GET | `/api/health` | 健康检查 + AI 是否配置 |
 | GET | `/api/config` | 版本、AI 状态、限流、来源列表 |
-| GET | `/api/sources` | 已接来源 + 未接来源及原因 |
+| GET | `/api/sources` | 已接来源 + 未配置来源及原因 |
+| GET | `/api/admin/sources` | **管理令牌**：来源 cookie 状态（只回掩码） |
+| POST | `/api/admin/sources` | **管理令牌**：保存/清除 BOSS、脉脉 cookie |
 | GET | `/api/stats` | 匿名计数（筛选/搜索/简历/导入/AI/tokens） |
 | POST | `/api/resume` | 上传简历（base64），返回正文 + 解析出的画像 |
 | POST | `/api/search` | 按关键词/城市/来源搜岗位并匹配 |
@@ -114,6 +117,21 @@ curl -s http://localhost:8790/api/resume \
 
 限流：AI **20 次/小时/IP**（缓存命中不占额度）、全站 **500 次/天**；搜索 **30 次/小时/IP**、全站 **300 次/天**；简历解析 **20 次/小时/IP**；总请求 **240 次/小时/IP**。可用 `JD_*` 环境变量调整。超限降级或返回 429，不会把错误藏起来。
 
+## 来源登录（BOSS / 脉脉）
+
+- **脉脉**：公开岗位页，不需要 cookie；默认已开。
+- **BOSS**：必须登录 cookie。打开网页「来源登录」，填 `JD_ADMIN_TOKEN`，粘贴浏览器里 `www.zhipin.com` 的完整 Cookie，UA 填同一个浏览器的（默认 Chrome Windows）。
+- cookie 只落盘到容器卷 `data/sources-auth.json`（**0600**）；接口只返回 `len=… · 尾4=…`，不回原文；管理接口必须带 `X-Admin-Token`，30 次/分钟/IP 限流。
+- 也可用环境变量注入（重启生效，网页保存的优先）：
+
+```bash
+JD_ADMIN_TOKEN=...        # openssl rand -hex 24；不设置则「来源登录」关闭
+BOSS_COOKIE="..."           # 可选
+BOSS_UA="Mozilla/5.0 ..."   # 可选，必须与 cookie 同浏览器
+```
+
+**风险**：BOSS `__zp_stoken__` 与 UA、IP、时间绑定；服务器 IP 与家里浏览器不同时仍可能 `code 37`，需要重新复制 cookie。这是登录态抓取，不绕验证码、不自动投递；cookie 失效就报错，不静默降级。
+
 ## AI 配置
 
 默认走主站 AI 网关（OpenAI 兼容）：
@@ -132,6 +150,7 @@ JD_MODEL=                                      # 可选；留空由网关按令�
 
 - 简历、画像、JD、上次结果只存在浏览器 `localStorage`；页脚可一键清除。
 - 上传文件只在内存解析，解析完即丢弃；服务端不写简历/JD 正文，不记录请求 IP；`data/stats.json` 只有计数、结论分布和 token 数。
+- **来源 cookie** 存在服务器 `data/sources-auth.json`（0600），只用于搜索时带上；接口只回掩码。管理令牌在 `docker/.env` 的 `JD_ADMIN_TOKEN`。
 - **开启 AI 时**，画像摘要（含简历摘要）与 JD 原文会经主站网关转发给模型供应商；不开启 AI 则不出本机。
 - 反代层（主站 Caddy）的访问日志仍会按主站统一策略记录请求 IP，这不在本应用控制范围内。
 
@@ -142,8 +161,8 @@ JD_MODEL=                                      # 可选；留空由网关按令�
 | 项 | 值 |
 | --- | --- |
 | 应用仓库 | `https://github.com/zxLumen/jd-screener`（public） |
-| 镜像 | `ghcr.io/zxlumen/jd-screener:latest`（public，匿名 pull）；v0.2.0 digest `sha256:69bad763…` |
-| 应用提交 | `420328d`（v0.2.0） |
+| 镜像 | `ghcr.io/zxlumen/jd-screener:latest`（public，匿名 pull）；v0.2.1 digest 见 `STATUS.md` |
+| 应用提交 | v0.2.1，见 `STATUS.md` |
 | 主站提交 | `8738de6`（v0.1 上线时） |
 | 线上路由 | `duiwei.{$DOMAIN} → duiwei:8790` |
 | DNS | DNSPod A `duiwei → 103.205.240.62`（RecordId `2447180381`） |
@@ -157,7 +176,7 @@ JD_MODEL=                                      # 可选；留空由网关按令�
 ```bash
 curl -sI https://duiwei.zxlumen.cn/ | head -1                 # 200
 curl -s https://duiwei.zxlumen.cn/api/health                  # {"ok":true,...,"ai":true}
-curl -s https://duiwei.zxlumen.cn/api/sources | head -c 400   # 5 个可用 + boss/maimai 未接
+curl -s https://duiwei.zxlumen.cn/api/sources | head -c 400   # 6 个公开源；BOSS 配置 cookie 后出现
 ```
 
 回滚：应用栏移除入口 → `docker compose stop duiwei` → 删 `duiwei.caddy` 后 `caddy reload`；或把 compose 的 `JD_TAG` 指回上一个镜像 tag。无数据库、无迁移。
@@ -171,6 +190,7 @@ lib/http.js            抓取：超时、大小上限、重定向逐跳校验（
 lib/html.js            HTML → 文本、实体解码、按 class 取块
 lib/resume.js          PDF / DOCX / TXT 简历解析（内置 zip + PDF 兜底）
 lib/cache.js           有上限的 TTL 缓存（列表 10 分钟 / 详情 30 分钟）
+lib/auth.js            来源 cookie/UA：0600 落盘、掩码回显、环境变量兜底
 lib/parse.js           JD/简历解析：年限、薪资、学历、城市、风险
 lib/skills.js          技能词典（147 项，中英别名）
 lib/score.js           确定性打分 + 硬门槛 + AI 混合
@@ -180,14 +200,14 @@ web/index.html         单页界面：简历上传 / 搜岗位 / 粘贴 JD / 结
 web/app.js             原生 ES module 前端
 web/styles.css         暗色主题，桌面 + 移动 + iframe 嵌入
 web/samples.json       3 条示例 JD
-test/                  35 个测试（解析 / 打分 / 来源 / 简历 / 网关 / API）
+test/                  40 个测试（解析 / 打分 / 来源 / 简历 / 登录态 / 网关 / API）
 deploy/                compose 服务片段、Caddy 路由、应用栏图标
 ```
 
 ## 还没接的（别当成有）
 
-- **BOSS 直聘 / 脉脉没有接口**：BOSS 返回 `code 37`，脉脉要求登录；只能手动粘贴或贴公开链接导入。
-- **不自动投递**：只做搜索与匹配，不登录招聘账号、不批量打招呼。
+- **BOSS 仍可能 code 37**：即使配了 cookie，服务器 IP/UA 变化也会失效；需要重新复制。脉脉公开页只覆盖公开岗位，不等于全站搜索。
+- **不自动投递**：只做搜索与匹配，不批量打招呼；cookie 只用于读取公开可见的职位列表/详情。
 - **没有账号体系**：不做云端保存、多设备同步、投递进度跟踪。
 - **没有向量语义匹配**：技能命中是词典 + 词边界，同义词覆盖有限；语义判断只靠 AI 提示词。
 - **没有公司评价数据**：不接脉脉/看准网，风险信号只从 JD 文本里读。
@@ -197,12 +217,14 @@ deploy/                compose 服务片段、Caddy 路由、应用栏图标
 
 ## 已验证（本地 v0.2）
 
-- `node --test test/*.test.js`：**35 pass / 0 fail**（解析/打分 23、来源 2、简历 5、API 10，其中 API 用真实子进程起服务）。
+- `node --test test/*.test.js`：**40 pass / 0 fail**（解析/打分 23、来源 4、简历 5、登录态 2、API 10，其中 API 用真实子进程起服务）。
 - 简历：真实 PDF **464KB → 8137 字 / 35 项技能 / 111ms**，自动填出「后端研发工程师 / 6 年 / 北京」。
 - 搜索（北京 · AI 应用工程师 · 4 源）：**候选 43 条，补详情 24 条，返回 12 条 / 4.6s**；来源 猎聘 40 / LinkedIn 20 / V2EX 10 / 电鸭 25。
 - 结果：**89 强投 / 79 可投 / 63 观望**，含 9 条猎聘 + 2 条 LinkedIn + 1 条电鸭；薪资 `30-50K`、`30-60K·18薪` 正常解析。
 - 链接导入：猎聘详情 **200 / 0.65s / 1878 字**；LinkedIn 公开职位 **200 / 0.67s / 8255 字**。
 - 浏览器端（Playwright）：上传简历 → 搜索 → 12 张结果卡渲染，**0 console error**；390px 无横向溢出。
+- 脉脉（公开页）：**1.66s / 候选 18 / 返回 12**，标题/公司/城市/薪资正常；部分详情走 JSON-LD，失败标「按摘要算」。
+- BOSS（假 cookie 验证失败路径）：`/api/search` 返回 **0 条 + `risk`**，文案「code 37：cookie 失效或 UA/IP 不一致」；管理接口未带令牌 **401**，保存后只返回掩码。
 
 线上验收（2026-11-10，`420328d` / digest `sha256:69bad763…`）：
 
@@ -217,4 +239,4 @@ deploy/                compose 服务片段、Caddy 路由、应用栏图标
 
 ## 版本
 
-`0.2.0` · 2026-11-10 · 搜索 + 简历上传。见 `STATUS.md`。
+`0.2.1` · 2026-11-10 · 搜索 + 简历上传 + 来源登录（BOSS cookie / 脉脉公开页）。见 `STATUS.md`。

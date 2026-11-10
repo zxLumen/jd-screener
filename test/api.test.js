@@ -1,6 +1,8 @@
 import test, { before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
+import fs from 'node:fs/promises'
+import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -8,6 +10,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.resolve(__dirname, '..')
 const PORT = 18879
 const BASE = `http://127.0.0.1:${PORT}`
+const AUTH_FILE = path.join(os.tmpdir(), `duiwei-api-auth-${process.pid}.json`)
 
 let child
 let logs = ''
@@ -52,7 +55,14 @@ async function waitHealth(timeout = 8000) {
 before(async () => {
   child = spawn(process.execPath, ['server.js'], {
     cwd: ROOT,
-    env: { ...process.env, PORT: String(PORT), ZX_AI_APP_TOKEN: '', ZX_AI_GATEWAY_URL: '' },
+    env: {
+      ...process.env,
+      PORT: String(PORT),
+      ZX_AI_APP_TOKEN: '',
+      ZX_AI_GATEWAY_URL: '',
+      JD_ADMIN_TOKEN: 'test-token',
+      JD_AUTH_FILE: AUTH_FILE,
+    },
     stdio: ['ignore', 'pipe', 'pipe'],
   })
   child.stdout.on('data', (d) => (logs += d))
@@ -60,8 +70,9 @@ before(async () => {
   await waitHealth()
 })
 
-after(() => {
+after(async () => {
   child?.kill('SIGTERM')
+  await fs.rm(AUTH_FILE, { force: true })
 })
 
 test('GET / 返回页面', async () => {
@@ -155,7 +166,7 @@ test('GET /api/sources 列出可用与未接来源', async () => {
   assert.ok(ids.includes('liepin'))
   assert.ok(ids.includes('linkedin'))
   assert.ok(!ids.includes('boss'))
-  assert.ok(d.unavailable.some((s) => s.id === 'boss' && /未接/.test(s.note)))
+  assert.ok(d.unavailable.some((s) => s.id === 'boss' && /cookie|来源登录/.test(s.note)))
 })
 
 test('POST /api/resume 解析 TXT 简历', async () => {
@@ -209,4 +220,36 @@ test('POST /api/import-jd 拒绝非 http 链接', async () => {
     body: JSON.stringify({ url: 'ftp://example.com/jd' }),
   })
   assert.equal(r.status, 422)
+})
+
+test('管理接口：401 / 保存 cookie 只回掩码 / 清除', async () => {
+  const no = await fetch(`${BASE}/api/admin/sources`)
+  assert.equal(no.status, 401)
+
+  const headers = { 'Content-Type': 'application/json', 'X-Admin-Token': 'test-token' }
+  const before = await (await fetch(`${BASE}/api/admin/sources`, { headers })).json()
+  assert.equal(before.auth.find((a) => a.id === 'boss').configured, false)
+  assert.equal(before.auth.find((a) => a.id === 'maimai').configured, true)
+
+  const cookie = '__zp_stoken__=supersecret123456; bst=abc'
+  const save = await fetch(`${BASE}/api/admin/sources`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ source: 'boss', cookie, ua: 'Mozilla/5.0 Test' }),
+  })
+  assert.equal(save.status, 200)
+  const saved = await save.json()
+  assert.equal(saved.auth.configured, true)
+  assert.ok(!JSON.stringify(saved).includes('supersecret123456'))
+  const list = await (await fetch(`${BASE}/api/sources`)).json()
+  assert.ok(list.sources.some((s) => s.id === 'boss'))
+
+  const clear = await fetch(`${BASE}/api/admin/sources`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ source: 'boss', clear: true }),
+  })
+  assert.equal(clear.status, 200)
+  const after = await clear.json()
+  assert.equal(after.auth.configured, false)
 })
