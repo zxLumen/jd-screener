@@ -170,8 +170,8 @@ JD_MODEL=                                      # 可选；留空由网关按令�
 | 项 | 值 |
 | --- | --- |
 | 应用仓库 | `https://github.com/zxLumen/jd-screener`（public） |
-| 镜像 | `ghcr.io/zxlumen/jd-screener:latest`（public，匿名 pull）；v0.2.1 digest `sha256:4a3de8ac…` |
-| 应用提交 | `a732785`（v0.2.1） |
+| 镜像 | `ghcr.io/zxlumen/jd-screener:latest`（public，匿名 pull）；v0.2.2 digest `sha256:cb46c11e…` |
+| 应用提交 | `3c6d450`（v0.2.2） |
 | 主站提交 | `8738de6`（v0.1 上线时） |
 | 线上路由 | `duiwei.{$DOMAIN} → duiwei:8790` |
 | DNS | DNSPod A `duiwei → 103.205.240.62`（RecordId `2447180381`） |
@@ -185,7 +185,7 @@ JD_MODEL=                                      # 可选；留空由网关按令�
 ```bash
 curl -sI https://duiwei.zxlumen.cn/ | head -1                 # 200
 curl -s https://duiwei.zxlumen.cn/api/health                  # {"ok":true,...,"ai":true}
-curl -s https://duiwei.zxlumen.cn/api/sources | head -c 400   # 6 个公开源；BOSS 配置 cookie 后出现
+curl -s https://duiwei.zxlumen.cn/api/sources | head -c 500   # 6 个默认源 + 3 blocked；BOSS 配置 cookie 后出现
 ```
 
 回滚：应用栏移除入口 → `docker compose stop duiwei` → 删 `duiwei.caddy` 后 `caddy reload`；或把 compose 的 `JD_TAG` 指回上一个镜像 tag。无数据库、无迁移。
@@ -237,10 +237,10 @@ deploy/                compose 服务片段、Caddy 路由、应用栏图标
 - 脉脉（公开页）：**1.66s / 候选 18 / 返回 12**，标题/公司/城市/薪资正常；部分详情走 JSON-LD，失败标「按摘要算」。
 - BOSS（假 cookie 验证失败路径）：`/api/search` 返回 **0 条 + `risk`**，文案「code 37：cookie 失效或 UA/IP 不一致」；管理接口未带令牌 **401**，保存后只返回掩码。
 
-线上验收（2026-11-10，`a732785` / digest `sha256:4a3de8ac…`）：
+线上验收（2026-11-10，`3c6d450` / digest `sha256:cb46c11e…`）：
 
-- 首页 **200 / 11109B / 74ms**；`/api/health` **200 / v0.2.1 / ai:true**；`/api/sources` **6 个公开源** + BOSS 未配置。
-- 真实搜索（北京 · AI 应用工程师 · 6 源）：冷缓存 **3.4s**，命中缓存 **0.28s**；候选 69 / 补详情 24 / 返回 12。猎聘 40 / LinkedIn 20 / V2EX 10 / 电鸭 25 / 脉脉 18 / 职友集 10。
+- 首页 **200 / 11109B / 86ms**；`/api/health` **200 / v0.2.2 / ai:true**；`/api/sources` **7 个可用源（默认 6）+ 3 个 blocked** + BOSS 未配置。
+- 真实搜索（北京 · AI 应用工程师 · 6 源）：冷缓存 **3.03s**，命中缓存 **0.36s**；候选 68 / 返回 12。猎聘 40 / LinkedIn 10 / V2EX 10 / 电鸭 25 / 脉脉 18 / 职友集 10，**6 个源都有结果**。
 - 结果：**80 强投（脉脉）/ 80（猎聘）/ 78（脉脉）**；4 条脉脉 + 7 条猎聘 + 1 条 LinkedIn；薪资 `30-60K`、`45-75K·16薪`。
 - 脉脉单源：**1.08s / 候选 18 / 返回 12**，缓存命中 **0.27s**；详情 JSON-LD 成功，失败标「按摘要算」。
 - BOSS 假 cookie 失败路径：**0.54s / 0 条 / `risk`**，文案「code 37：cookie 失效或 UA/IP 不一致」；未带令牌 **401**，保存后只返回掩码，清除后恢复未配置。
