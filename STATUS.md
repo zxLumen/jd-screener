@@ -36,11 +36,12 @@
 - 简历 TXT：**107ms / 12 技能 / 期望 30-45K**；猎聘链接导入 **0.61s / 1873 字**。
 - AI 精评：**5.6s / 规则 89 + AI 42 → 68**，`deepseek-v4.1-flash`。
 - 容器 **healthy / restarts=0 / 30.31MiB / 96MiB**；Caddy 冒烟 **24/24 ok**。
+- 复验：远程岗位在未勾选「接受远程」时城市 gate = warn（score 77）。
 
 ## 发布记录
 
 - 0.1.0：应用 `d8adcc4`，主站 `8738de6`；DNS `duiwei → 103.205.240.62`（RecordId `2447180381`）。
-- 0.2.0：应用提交 `017a452`，镜像 digest `sha256:fee0cd49…`；容器新增 `curl` + `poppler-utils`；本地 rollback tag `rollback-20261110-1000`。
+- 0.2.0：应用提交 `aa05cdf`，镜像 digest `sha256:6b227ee2…`；容器新增 `curl` + `poppler-utils`；本地 rollback tag：`rollback-20261110-1000`（v0.1）、`rollback-v02-fee0`（v0.2 首版）。
 - AI 令牌：网关应用 `duiwei`，`chat-default` / `deepseek-v4.1-flash`，日限 300k tokens。
 
 ## 明确不做 / 还没接

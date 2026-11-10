@@ -142,8 +142,8 @@ JD_MODEL=                                      # 可选；留空由网关按令�
 | 项 | 值 |
 | --- | --- |
 | 应用仓库 | `https://github.com/zxLumen/jd-screener`（public） |
-| 镜像 | `ghcr.io/zxlumen/jd-screener:latest`（public，匿名 pull）；v0.2.0 digest `sha256:fee0cd49…` |
-| 应用提交 | `017a452`（v0.2.0） |
+| 镜像 | `ghcr.io/zxlumen/jd-screener:latest`（public，匿名 pull）；v0.2.0 digest `sha256:6b227ee2…` |
+| 应用提交 | `aa05cdf`（v0.2.0） |
 | 主站提交 | `8738de6`（v0.1 上线时） |
 | 线上路由 | `duiwei.{$DOMAIN} → duiwei:8790` |
 | DNS | DNSPod A `duiwei → 103.205.240.62`（RecordId `2447180381`） |
@@ -204,7 +204,7 @@ deploy/                compose 服务片段、Caddy 路由、应用栏图标
 - 链接导入：猎聘详情 **200 / 0.65s / 1878 字**；LinkedIn 公开职位 **200 / 0.67s / 8255 字**。
 - 浏览器端（Playwright）：上传简历 → 搜索 → 12 张结果卡渲染，**0 console error**；390px 无横向溢出。
 
-线上验收（2026-11-10，`017a452` / digest `sha256:fee0cd49…`）：
+线上验收（2026-11-10，`aa05cdf` / digest `sha256:6b227ee2…`）：
 
 - 首页 **200 / 11109B / 86ms**；`/api/health` **200 / ai:true**；`/api/sources` 5 可用 + 2 未接。
 - 真实搜索（北京 · AI 应用工程师 · 4 源）：**200 / 2.97s / 候选 43 / 补详情 24 / 返回 12**；猎聘 40 / LinkedIn 20 / V2EX 10 / 电鸭 25。
