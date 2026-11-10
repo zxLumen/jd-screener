@@ -396,6 +396,7 @@ function aiMetaNote(r) {
   if (m.failed) return `AI 调用失败（${m.reason || 'unknown'}），已按规则分`
   if (m.skipped === 'not-configured') return 'AI 未配置，按规则分'
   if (m.skipped === 'rate-limit') return 'AI 触发限流，按规则分'
+  if (m.skipped === 'daily-cap') return 'AI 今日额度已用完，按规则分'
   if (m.skipped === 'off') return '未开 AI，按规则分'
   return 'AI 未参与，按规则分'
 }
@@ -425,14 +426,19 @@ function renderResult(r) {
   const hit = r.skill?.hit || []
   const missing = r.skill?.missing || []
   const mustMissing = new Set(r.skill?.mustMissing || [])
-  const hitChips = hit.length
-    ? hit.map((s) => `<span class="kw hit">${esc(s)}</span>`).join('')
-    : '<span class="muted">无</span>'
-  const missChips = missing.length
-    ? missing
-        .map((s) => `<span class="kw miss ${mustMissing.has(s) ? 'must' : ''}">${esc(s)}</span>`)
-        .join('')
-    : '<span class="muted">无</span>'
+  const skillUnknown = Boolean(r.skill?.unknown)
+  const hitChips = skillUnknown
+    ? '<span class="muted">未填技能，未做匹配</span>'
+    : hit.length
+      ? hit.map((s) => `<span class="kw hit">${esc(s)}</span>`).join('')
+      : '<span class="muted">无</span>'
+  const missChips = skillUnknown
+    ? '<span class="muted">—</span>'
+    : missing.length
+      ? missing
+          .map((s) => `<span class="kw miss ${mustMissing.has(s) ? 'must' : ''}">${esc(s)}</span>`)
+          .join('')
+      : '<span class="muted">无</span>'
 
   const risks = (r.redFlags || [])
     .map((f) => `<span class="risk" title="${esc(f.evidence)}">${esc(f.label)}</span>`)

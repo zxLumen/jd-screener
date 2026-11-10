@@ -167,6 +167,28 @@ test('scoreOne: 薪资明显低于期望会扣分', () => {
   assert.ok(r.score < 50)
 })
 
+test('scoreOne: 未填技能时技能分按中性处理，而不是 0', () => {
+  const profile = parseProfile({
+    title: 'AI 应用工程师',
+    years: '5',
+    education: '本科',
+    city: '北京',
+    salaryMin: '25',
+    salaryMax: '40',
+  })
+  const r = scoreOne(profile, parseJD(SAMPLE_AI))
+  assert.equal(r.skill.unknown, true)
+  assert.equal(r.skill.coverage, null)
+  assert.ok(r.score >= 70, `分数 ${r.score} 不应被技能 0 分拖死`)
+  assert.equal(r.verdict, 'ok', '没填技能不应给强投')
+  assert.ok(r.reasons.some((x) => x.includes('还没填技能')))
+})
+
+test('parseProfile: 学历「不限」视为未知', () => {
+  const p = parseProfile({ title: '工程师', education: '不限' })
+  assert.equal(p.eduRank, null)
+})
+
 test('scoreOne: AI 分只占 45%', () => {
   const profile = parseProfile({
     title: 'AI 应用工程师',

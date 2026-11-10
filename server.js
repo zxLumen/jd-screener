@@ -4,7 +4,7 @@
  */
 import http from 'node:http'
 import path from 'node:path'
-import { promises as fs } from 'node:fs'
+import { promises as fs, mkdirSync, writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { parseJD, parseProfile } from './lib/parse.js'
 import { scoreOne } from './lib/score.js'
@@ -22,6 +22,7 @@ const MAX_JD_CHARS = 20000
 const MAX_BODY = 512 * 1024
 const AI_RATE = Number(process.env.JD_AI_RATE) || 20
 const TOTAL_RATE = Number(process.env.JD_TOTAL_RATE) || 240
+const AI_DAILY = Number(process.env.JD_AI_DAILY) || 500
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -106,6 +107,19 @@ setInterval(() => {
   for (const [k, b] of buckets) if (b.reset <= now) buckets.delete(k)
 }, 10 * 60 * 1000).unref?.()
 
+// 全站 AI 日限额（北京时间日切），防止公网被刷爆 token
+function bjDay() {
+  return new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10)
+}
+let aiDay = { day: bjDay(), count: 0 }
+function allowGlobalAI() {
+  const d = bjDay()
+  if (aiDay.day !== d) aiDay = { day: d, count: 0 }
+  if (aiDay.count >= AI_DAILY) return false
+  aiDay.count++
+  return true
+}
+
 function clientIp(req) {
   const xff = req.headers['x-forwarded-for']
   if (typeof xff === 'string' && xff) return xff.split(',')[0].trim()
@@ -157,6 +171,7 @@ function readJson(req) {
       size += c.length
       if (size > MAX_BODY) {
         done = true
+        req.resume()
         reject(new HttpError(413, '请求体太大'))
         return
       }
@@ -231,7 +246,7 @@ async function runOne(profile, jdText, ip, useAI, id) {
 
   if (useAI) {
     const r = await llm.screen(profile, jd, {
-      beforeCall: () => allow(ip, 'ai', AI_RATE, 60 * 60 * 1000),
+      beforeCall: () => allow(ip, 'ai', AI_RATE, 60 * 60 * 1000) && allowGlobalAI(),
     })
     if (r.ai) {
       ai = r.ai
@@ -311,7 +326,7 @@ async function handleApi(req, res, pathname) {
       ai: cfg.configured,
       model: cfg.model || '由网关决定',
       maxJDs: MAX_JDS,
-      limits: { aiPerHour: AI_RATE, totalPerHour: TOTAL_RATE },
+      limits: { aiPerHour: AI_RATE, aiDaily: AI_DAILY, totalPerHour: TOTAL_RATE },
       privacy: '画像与 JD 只在浏览器 localStorage；服务端不落库，只记匿名计数',
     })
   }
@@ -370,6 +385,7 @@ async function handleApi(req, res, pathname) {
     const profile = validateProfile(body.profile)
     const jdText = validateJd(body.jd)
     const useAI = body.useAI !== false
+    stats.screens++
     const result = await runOne(profile, jdText, ip, useAI, body.id || null)
     return sendJson(res, 200, {
       ok: true,
@@ -395,6 +411,7 @@ async function handleApi(req, res, pathname) {
       throw new HttpError(429, '请求太频繁，请稍后再试')
     }
     const useAI = body.useAI !== false
+    stats.screens++
     const started = Date.now()
     const results = await mapLimit(jds, 3, (j) => runOne(profile, j.text, ip, useAI, j.id))
     const ai = {
@@ -451,6 +468,12 @@ server.listen(PORT, () => {
 
 function shutdown(sig) {
   console.log(`[jd] ${sig}，正在退出`)
+  try {
+    mkdirSync(DATA_DIR, { recursive: true })
+    writeFileSync(STATS_FILE, JSON.stringify(stats))
+  } catch {
+    /* 退出时写不进去也不阻塞 */
+  }
   server.close(() => process.exit(0))
   setTimeout(() => process.exit(0), 3000).unref?.()
 }

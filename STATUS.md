@@ -16,7 +16,7 @@
 
 ## 验收数字
 
-- 测试：`node --test test/*.test.js` → **21 pass / 0 fail**。
+- 测试：`node --test test/*.test.js` → **23 pass / 0 fail**。
 - 本地：`GET /` **200 / 7.9KB / 15ms**；`/api/health` 在未配令牌时 `ai:false`，自动规则模式。
 - 示例画像 + 3 条示例 JD：**94 强投 / 75 可投 / 25 不建议**；风险命中外包、大小周、职责过杂。
 - 浏览器：Chromium 1440×1000 与 390×844，无 console error。

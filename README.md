@@ -20,7 +20,7 @@ PORT=8790 node server.js
 打开 `http://localhost:8790/`。不配 AI 令牌时自动进入**规则模式**，秒出结果。
 
 ```bash
-node --test test/*.test.js   # 21 个测试
+node --test test/*.test.js   # 23 个测试
 ```
 
 ## 怎么用
@@ -81,7 +81,7 @@ curl -s http://localhost:8790/api/screen-one \
   }'
 ```
 
-限流：AI 调用 **20 次/小时/IP**（缓存命中不占额度），总请求 **240 次/小时/IP**，可用 `JD_AI_RATE` / `JD_TOTAL_RATE` 调整。超限降级为规则分，不报错。
+限流：AI 调用 **20 次/小时/IP**（缓存命中不占额度）、全站 **500 次/天**（北京时间日切），总请求 **240 次/小时/IP**。可用 `JD_AI_RATE` / `JD_AI_DAILY` / `JD_TOTAL_RATE` 调整。超限降级为规则分，不报错。
 
 ## AI 配置
 
@@ -101,6 +101,7 @@ JD_MODEL=                                      # 可选；留空由网关按令�
 
 - 画像、JD、上次结果只存在浏览器 `localStorage`；页脚可一键清除。
 - 服务端不写画像/JD 正文，不记录请求 IP；`data/stats.json` 只有计数、结论分布和 token 数。
+- **开启 AI 时**，画像摘要（含简历摘要）与 JD 原文会经主站网关转发给模型供应商；不开启 AI 则不出本机。
 - 反代层（主站 Caddy）的访问日志仍会按主站统一策略记录请求 IP，这不在本应用控制范围内。
 
 ## 部署（发布前需要老板拍板）
@@ -153,7 +154,7 @@ web/index.html         单页界面
 web/app.js             原生 ES module 前端（画像 / JD 列表 / 结果 / 导出）
 web/styles.css         暗色主题，桌面 + 移动 + iframe 嵌入
 web/samples.json       3 条示例 JD
-test/                  21 个测试（解析 / 打分 / 网关 / API）
+test/                  23 个测试（解析 / 打分 / 网关 / API）
 deploy/                compose 服务片段、Caddy 路由、应用栏图标
 ```
 
@@ -169,7 +170,7 @@ deploy/                compose 服务片段、Caddy 路由、应用栏图标
 
 ## 已验证
 
-- `node --test test/*.test.js`：**21 pass / 0 fail**（解析与打分 11、网关 3、API 7，其中 API 用真实子进程起服务）。
+- `node --test test/*.test.js`：**23 pass / 0 fail**（解析与打分 13、网关 3、API 7，其中 API 用真实子进程起服务）。
 - 本地 `GET /`：**200 / 7.9KB / 15ms**；`/api/health` 返回 `ai:false` 时自动规则模式。
 - 示例画像 + 3 条示例 JD：**94 强投 / 75 可投 / 25 不建议**，风险信号正确命中外包、大小周、职责过杂。
 - 浏览器（Chromium 1440×1000 / 390×844）：无 console error，移动端单列布局正常。
