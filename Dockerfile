@@ -5,6 +5,9 @@ WORKDIR /app
 ENV NODE_ENV=production \
     PORT=8790
 
+# curl：猎聘对 Node TLS 指纹返回挑战页，用 curl 抓；poppler：PDF 简历抽文本
+RUN apk add --no-cache curl poppler-utils
+
 COPY package.json server.js ./
 COPY lib ./lib
 COPY web ./web

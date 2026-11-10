@@ -6,7 +6,7 @@
     <title>对位 · AI 智能筛选 JD</title>
     <meta
       name="description"
-      content="把一堆 JD 粘进来，按你的画像算匹配分：硬门槛、技能命中、风险信号、简历关键词，一次看清。简历只在本地。"
+      content="不用一条条粘 JD：从猎聘、LinkedIn、V2EX、电鸭等公开来源搜岗位，上传简历自动解析，按硬门槛、技能命中、风险信号算匹配分。简历只在本地。"
     />
     <meta name="theme-color" content="#06120c" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
@@ -22,7 +22,7 @@
         </span>
       </a>
       <div class="top-actions">
-        <span class="privacy" title="画像与 JD 只存在这台设备的 localStorage，服务端不落库">🔒 简历只在本地</span>
+        <span class="privacy" title="简历与画像只存在这台设备的 localStorage，服务端解析后即丢弃">🔒 简历只在本地</span>
         <span id="ai-status" class="ai-status" data-on="unknown">检测中…</span>
         <button id="btn-help" class="ghost sm" type="button">怎么用</button>
       </div>
@@ -30,9 +30,9 @@
 
     <main>
       <section class="hero">
-        <h1>别海投。<span>先筛一遍。</span></h1>
+        <h1>别再海投。<span>先搜再筛。</span></h1>
         <p>
-          粘贴 JD，按你的画像算匹配分：硬门槛、技能命中、风险信号、简历关键词，一次看清。
+          从猎聘、LinkedIn、V2EX、电鸭的公开岗位里搜，上传简历自动解析，按硬门槛、技能命中、风险信号算匹配分。
           规则分永远可用，AI 只是加分项。
         </p>
       </section>
@@ -40,9 +40,20 @@
       <div class="layout">
         <aside class="card profile-card">
           <div class="card-head">
-            <h2><span class="step">1</span> 我的画像</h2>
+            <h2><span class="step">1</span> 我的简历</h2>
             <button id="btn-sample-profile" class="link" type="button">填示例</button>
           </div>
+
+          <div id="drop" class="upload">
+            <input id="resume-file" type="file" accept=".pdf,.docx,.txt,.md,.html,.htm" hidden />
+            <div class="upload-main">
+              <b>上传简历</b>
+              <span>PDF / DOCX / TXT · ≤5MB · 拖进来也行</span>
+            </div>
+            <button id="btn-upload" class="ghost sm" type="button">选文件</button>
+          </div>
+          <p id="resume-note" class="note"></p>
+
           <form id="profile-form" autocomplete="off">
             <div class="field">
               <label for="p-title">目标岗位</label>
@@ -70,9 +81,9 @@
             <div class="field">
               <label for="p-smin">期望月薪（K）</label>
               <div class="range-row">
-                <input id="p-smin" name="salaryMin" type="number" min="0" max="500" step="1" placeholder="25" />
+                <input id="p-smin" name="salaryMin" type="number" min="0" max="500" step="1" placeholder="30" />
                 <span>—</span>
-                <input id="p-smax" name="salaryMax" type="number" min="0" max="500" step="1" placeholder="40" />
+                <input id="p-smax" name="salaryMax" type="number" min="0" max="500" step="1" placeholder="50" />
               </div>
             </div>
             <label class="check">
@@ -80,27 +91,71 @@
               <span>接受远程</span>
             </label>
             <div class="field">
-              <label for="p-resume">技能 / 简历摘要 <span class="muted">（可选）</span></label>
+              <label for="p-resume">技能 / 简历文本 <span class="muted">（自动填充，可改）</span></label>
               <textarea
                 id="p-resume"
                 name="resumeText"
-                rows="5"
+                rows="6"
                 maxlength="12000"
-                placeholder="粘贴简历或技能清单，自动抽技能。&#10;例：Python、Ray、Kubernetes、LLM 应用、FastAPI……"
+                placeholder="上传简历后自动填入；也可以直接粘贴技能清单。&#10;例：Python、Ray、Kubernetes、LLM 应用、FastAPI……"
               ></textarea>
             </div>
           </form>
           <div id="skill-preview" class="skill-preview" aria-live="polite"></div>
         </aside>
 
-        <section class="card jd-card">
+        <section class="card search-card">
           <div class="card-head">
-            <h2><span class="step">2</span> 待筛 JD</h2>
-            <span id="jd-count" class="hint">0 条</span>
+            <h2><span class="step">2</span> 搜岗位</h2>
+            <span id="source-status" class="hint">来源加载中…</span>
+          </div>
+          <div class="search-grid">
+            <div class="field">
+              <label for="q">关键词</label>
+              <input id="q" type="text" maxlength="60" placeholder="例：AI 应用工程师 / Python 后端" />
+            </div>
+            <div class="field">
+              <label for="q-city">城市</label>
+              <input id="q-city" type="text" maxlength="20" placeholder="北京 / 远程" />
+            </div>
+            <div class="field">
+              <label for="q-limit">返回</label>
+              <select id="q-limit">
+                <option value="8">8 条</option>
+                <option value="12" selected>12 条</option>
+                <option value="20">20 条</option>
+              </select>
+            </div>
+          </div>
+          <div id="source-picker" class="source-picker" role="group" aria-label="招聘来源"></div>
+          <div class="row run-row">
+            <button id="btn-search" class="run" type="button">搜 JD 并匹配</button>
+            <label class="check inline">
+              <input id="search-ai" type="checkbox" />
+              <span>搜完 AI 精评前 3 条</span>
+            </label>
+          </div>
+          <div id="search-progress" class="progress-wrap" hidden>
+            <div class="progress"><div id="search-progress-bar"></div></div>
+            <span id="search-progress-text"></span>
+          </div>
+          <p id="search-note" class="note"></p>
+        </section>
+      </div>
+
+      <details id="paste-card" class="card paste-card">
+        <summary>
+          <span class="step">3</span> 手动粘贴 JD
+          <span class="muted">（旧方式，仍可用；BOSS/脉脉的 JD 可以复制过来）</span>
+        </summary>
+        <div class="paste-body">
+          <div class="row">
+            <input id="jd-url" class="url-input" type="url" placeholder="或粘贴一条公开 JD 链接（猎聘 / LinkedIn / 公司招聘页）" />
+            <button id="btn-import" class="ghost" type="button">从链接导入</button>
           </div>
           <textarea
             id="jd-input"
-            rows="8"
+            rows="6"
             maxlength="20000"
             placeholder="把 JD 粘在这里。&#10;多条之间用一行 --- 分隔，一次最多 8 条。"
           ></textarea>
@@ -108,6 +163,7 @@
             <button id="btn-add" class="primary" type="button">添加 JD</button>
             <button id="btn-sample" class="ghost" type="button">载入 3 条示例</button>
             <button id="btn-clear" class="ghost danger" type="button">清空</button>
+            <span id="jd-count" class="hint">0 条</span>
           </div>
           <div id="jd-list" class="jd-list"></div>
           <div class="run-bar">
@@ -122,13 +178,13 @@
             <span id="progress-text">0 / 0</span>
           </div>
           <p id="run-note" class="note"></p>
-        </section>
-      </div>
+        </div>
+      </details>
 
       <section id="results" class="results" hidden>
         <div class="results-head">
           <div>
-            <h2><span class="step">3</span> 筛选结果</h2>
+            <h2><span class="step">4</span> 筛选结果</h2>
             <p id="summary" class="summary"></p>
           </div>
           <div class="row">
@@ -142,7 +198,7 @@
     </main>
 
     <footer>
-      <span>对位 v0.1 · 自托管 · 零依赖</span>
+      <span>对位 v0.2 · 自托管 · 5 个公开来源</span>
       <span class="foot-links">
         <button id="btn-clear-local" class="link" type="button">清除本地数据</button>
         <span>·</span>
@@ -155,19 +211,23 @@
     <dialog id="help" class="help">
       <h3>怎么用</h3>
       <ol>
-        <li>填画像：岗位、年限、学历、城市、期望薪资。简历摘要只用来抽技能，存在浏览器本地。</li>
-        <li>粘 JD：多条用一行 <code>---</code> 分隔，一次最多 8 条。</li>
-        <li>点「开始筛选」：规则层先算硬门槛和技能覆盖，再可选调 AI 深评。</li>
+        <li><b>上传简历</b>：PDF / DOCX / TXT，自动抽岗位、年限、学历、城市、技能，填进左侧画像。文件只在内存解析，不落库。</li>
+        <li><b>搜岗位</b>：关键词 + 城市，选来源。猎聘按城市搜；LinkedIn 用 guest 公开接口；V2EX/电鸭用公开 API。</li>
+        <li><b>看结果</b>：规则分先排，点「AI 精评」再调模型；可打开原帖、导出 Markdown/CSV。</li>
+        <li><b>手动粘贴</b>：BOSS/脉脉等没有公开接口的来源，复制 JD 进来，或贴一条公开链接导入。</li>
       </ol>
       <h4>分数怎么来</h4>
       <p>
         规则分 = 技能 45% + 年限 20% + 薪资 15% + 学历 10% + 城市 10%，再扣风险信号（外包、996、年龄限制等，最多扣 30）。
         年限或学历硬门槛不过，分数封顶 45–50。AI 分只占最终分 45%，规则分仍占 55%。
       </p>
+      <h4>来源边界</h4>
+      <p>
+        已接：猎聘、LinkedIn、V2EX 酷工作、电鸭社区、Remote OK（英文远程，默认关）。
+        <b>未接 BOSS 直聘和脉脉</b>：前者接口返回 code 37（环境异常），后者搜索强制登录；不硬闯验证码，也不伪造数据。
+      </p>
       <h4>隐私</h4>
-      <p>画像与 JD 只存在这台设备的 localStorage；服务端不保存正文、不记录 IP，只累计匿名次数。</p>
-      <h4>边界</h4>
-      <p>不抓招聘网站、不投递、不解析 PDF；JD 里没写的年限/薪资会标「未写」，不猜。</p>
+      <p>画像、简历、JD 只存在这台设备的 localStorage；服务端解析上传文件后即丢弃，不保存正文、不记录 IP，只累计匿名次数。</p>
       <div class="row end">
         <button id="btn-help-close" class="primary" type="button">知道了</button>
       </div>

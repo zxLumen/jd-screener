@@ -147,3 +147,66 @@ test('未知 API 404 / 目录穿越 404', async () => {
   const b = await fetch(`${BASE}/..%2f..%2fpackage.json`)
   assert.equal(b.status, 404)
 })
+
+test('GET /api/sources 列出可用与未接来源', async () => {
+  const d = await (await fetch(`${BASE}/api/sources`)).json()
+  assert.equal(d.ok, true)
+  const ids = d.sources.map((s) => s.id)
+  assert.ok(ids.includes('liepin'))
+  assert.ok(ids.includes('linkedin'))
+  assert.ok(!ids.includes('boss'))
+  assert.ok(d.unavailable.some((s) => s.id === 'boss' && /未接/.test(s.note)))
+})
+
+test('POST /api/resume 解析 TXT 简历', async () => {
+  const text = `王五
+AI 应用工程师
+5 年经验，Python、FastAPI、Ray、Kubernetes、Redis、MySQL、Docker、RAG、LangChain。
+做过大模型应用与 MLOps 平台，期望月薪 30-45K。`
+  const r = await fetch(`${BASE}/api/resume`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ filename: 'resume.txt', data: Buffer.from(text).toString('base64') }),
+  })
+  assert.equal(r.status, 200)
+  const d = await r.json()
+  assert.equal(d.meta.kind, 'txt')
+  assert.equal(d.profile.title, 'AI 应用工程师')
+  assert.ok(d.profile.skills.includes('Python'))
+  assert.equal(d.profile.salaryMin, 30)
+  assert.match(d.text, /LangChain/)
+})
+
+test('POST /api/resume 空文件返回 422', async () => {
+  const r = await fetch(`${BASE}/api/resume`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ filename: 'a.txt', data: '' }),
+  })
+  assert.equal(r.status, 422)
+})
+
+test('POST /api/search 参数校验：无可用来源 / 无关键词', async () => {
+  const noSource = await fetch(`${BASE}/api/search`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ profile: PROFILE, query: 'python', sources: ['boss'] }),
+  })
+  assert.equal(noSource.status, 400)
+
+  const noQuery = await fetch(`${BASE}/api/search`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ profile: { ...PROFILE, title: '' }, query: '', sources: ['v2ex'] }),
+  })
+  assert.equal(noQuery.status, 400)
+})
+
+test('POST /api/import-jd 拒绝非 http 链接', async () => {
+  const r = await fetch(`${BASE}/api/import-jd`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ url: 'ftp://example.com/jd' }),
+  })
+  assert.equal(r.status, 422)
+})
