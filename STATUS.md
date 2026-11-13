@@ -1,13 +1,21 @@
 # STATUS · 对位（AI 智能筛选 JD）
 
-- **版本**：0.2.3（**未上线，等拍板**；线上仍是 0.2.2）
-- **状态**：已上线（2026-11-10）
+- **版本**：0.2.3
+- **状态**：已上线（2026-11-14 07:38 CST；应用 `ba08844`）
 - **线上**：https://duiwei.zxlumen.cn
 - **定位**：岗位搜索 + 简历匹配器。规则分永远可用，AI 只做加分项。
 - **仓库**：https://github.com/zxLumen/jd-screener（public）
-- **镜像**：`ghcr.io/zxlumen/jd-screener:latest`（public，匿名 pull）；v0.2.2 digest `sha256:d1085d41…`
+- **镜像**：`ghcr.io/zxlumen/jd-screener:latest`（public，匿名 pull）；v0.2.3 digest `sha256:40380bc9…`；回滚 tag `rollback-v022-pre`（= 0.2.2 `a38d6a7f…`）
 
-## 0.2.3（本地已改完，未上线）
+## 0.2.3 上线验收（2026-11-14 07:38 CST）
+
+- 首页 **200 / 117ms**；health `v0.2.3 / ai:true`；容器 **healthy / 32.81MiB / 96MiB**。
+- 脉脉单源（线上，后端开发/北京）：**cand 11 / ret 11 / 1.36s（源 802ms）**，前三条 62/58/58 分；改前同条件 1 条。
+- 6 源全量（AI 应用工程师/北京）：**1.90s / 候选 55 / 返回 12**；liepin 40、linkedin 20、v2ex 10、eleduck 25、maimai 18、jobui 10，全部无 error。
+- 「来源登录 → 体检」线上可用：无令牌 **401**；无 cookie → `no-cookie`（ms 0）；假 cookie（本地）→ `risk` 194ms；配 `JD_BOSS_PROXY` → `proxy:true`。
+- BOSS 仍未配置：`/api/sources` 把它列在 `unavailable`，文案「需登录 cookie + 大陆出口 IP（境外 IP 会 code 37）」。
+
+## 0.2.3 改了什么
 
 - **脉脉「匹配不到岗位」根因**：`maimai.cn/n/platform/job-list` 是**推荐流**，没有关键词搜索参数（`keyword/query/q/search` 全部无效，返回同一份 50 条）；旧实现只翻 2 页（100/4664）且用整串 `includes` 匹配，「后端开发」这种词在标题里几乎不存在 → 1 条或 0 条，0 条时直接报错。
 - **改法**：翻到 6 页（约 300 条，1 页 520ms + 其余 110ms/页）；关键词切分（去「工程师/开发/专家/经理…」后缀，`后端开发→后端`）；英文按词边界（`go` 不再命中 `google`，`go→golang` 走别名）；命中 <3 条时补 6 条同方向岗位并标 `loose`，前端显示「脉脉推荐 · 未命中关键词」。
@@ -16,6 +24,13 @@
 - **BOSS 改法**：新增「来源登录 → 体检」（`GET/POST /api/admin/sources/boss-check`，不改状态），直接区分 no-cookie / code 37 / 正常；新增 `JD_BOSS_PROXY`（HTTP/SOCKS 代理，curl `-x` 走代理）与 `JD_EGRESS_HINT`；code 37 文案点明「境外 IP 会判环境异常」。
 - **测试**：`node --test test/*.test.js` → **49 pass / 0 fail**（新增 4 组：切词、词边界/别名、脉脉来源说明、BOSS 无 cookie 体检）。
 - **验证**：本地 8897/8898 起服务；`/api/search` 脉脉单源返回 11 条、`/api/config` 文案已更新；`boss-check` 无令牌 401、无 cookie `no-cookie`、假 cookie `risk`（194ms）、走代理时 `proxy:true` 且错误可读。
+
+## BOSS 待办（老板拍板：先贴 cookie 试 / 或买大陆代理）
+
+1. 浏览器登录 `www.zhipin.com` → F12 → 任意 zhipin.com 请求 → 复制整串 Cookie。
+2. `https://duiwei.zxlumen.cn/` → 「来源登录」→ 填 `JD_ADMIN_TOKEN`（服务器 `docker/.env`）→ 粘贴 Cookie → UA 用当前浏览器 → **先点「体检」**。
+3. 体检 `ok` 再保存；`risk` 说明出口被拦，把 `JD_BOSS_PROXY` 指到大陆 HTTP/SOCKS 代理后重启 `duiwei` 再体检。
+4. 大陆代理预算 ¥24–40/月；机房 IP 仍可能被风控，住宅出口更稳。
 
 ## 0.2.2 已交付
 
@@ -58,6 +73,7 @@ grep '^JD_ADMIN_TOKEN=' /home/ubuntu/zxLumen-Blog/docker/.env
 
 ## 发布记录
 
+- 0.2.3：应用 `ba08844`；镜像 `sha256:40380bc9…`；脉脉切词+翻 6 页+推荐兜底；BOSS 体检接口与 `JD_BOSS_PROXY`；CI run `43528438440` success；回滚 tag `rollback-v022-pre`。
 - 0.2.2：应用 `4b4dcdc`；镜像 `sha256:d1085d41…`；新增职友集 RSS + 三个 blocked 来源；BOSS/管理令牌逻辑未改。
 - 0.2.1：应用 `a732785`；镜像 `sha256:4a3de8ac…`；容器重建，新增 `JD_ADMIN_TOKEN`（`.env` 已备份 `.env.bak-before-duiwei-auth-*`）。
 - 0.2.0：应用 `420328d`；镜像 `sha256:69bad763…`；新增搜索 + 简历上传。
