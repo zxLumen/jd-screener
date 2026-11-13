@@ -480,7 +480,10 @@ async function runSearch() {
     state.elapsedMs = r.meta?.elapsedMs || Date.now() - t0
     setSearchProgress(`完成 · ${state.results.length} 条`, 100)
     const diag = (r.meta?.sources || [])
-      .map((s) => `${s.name} ${s.count}${s.error ? `（${s.message || s.error}）` : s.stale ? '（缓存）' : ''}`)
+      .map((s) => {
+        const tail = s.error ? `（${s.message || s.error}）` : s.stale ? '（缓存）' : s.note ? `（${s.note}）` : ''
+        return `${s.name} ${s.count}${tail}`
+      })
       .join(' · ')
     $('#search-note').textContent = `候选 ${r.meta?.candidates || 0} 条，补详情 ${r.meta?.detailed || 0} 条，返回 ${state.results.length} 条 · ${diag}`
     if (!state.results.length) {
@@ -768,6 +771,28 @@ async function saveSourceAuth(id) {
   }
 }
 
+async function checkBoss() {
+  const box = $('#auth-boss-check')
+  const cookie = $('#auth-boss-cookie').value.trim()
+  const ua = $('#auth-boss-ua').value.trim()
+  box.hidden = false
+  box.textContent = '体检中：真打一次 BOSS 搜索接口…'
+  try {
+    const d = await adminFetch('/api/admin/sources/boss-check', {
+      method: 'POST',
+      body: JSON.stringify({ cookie, ua }),
+    })
+    const c = d.check || {}
+    const head = c.ok ? '✅' : '❌'
+    box.textContent = `${head} ${c.message}${c.proxy ? ' · 走代理' : ' · 未配代理'} · ${c.ms || 0}ms`
+    if (!c.ok && c.code === 'risk') {
+      box.textContent += '｜下一行是做法：把 JD_BOSS_PROXY 指到大陆出口（本机 relay / 大陆代理），或先在本机搜完贴链接'
+    }
+  } catch (e) {
+    box.textContent = `体检失败：${e.message}`
+  }
+}
+
 async function clearSourceAuth(id) {
   if (!window.confirm(`清除 ${id === 'boss' ? 'BOSS' : '脉脉'} 的登录态？`)) return
   try {
@@ -932,6 +957,7 @@ function renderResult(r) {
         <span>置信度 ${confidenceLabel(r.confidence)}</span>
         <span>${esc(aiMetaNote(r))}</span>
         ${r.sourceDetail === 'fallback' ? '<span class="warn-note">详情未取到，按摘要算</span>' : ''}
+        ${r.loose ? '<span class="warn-note">脉脉推荐 · 未命中关键词</span>' : ''}
         ${sourceLink ? `<span class="src-line">${sourceLink}${posted ? ` · ${posted}` : ''}</span>` : ''}
       </div>
       <div class="gates">${gates}</div>
@@ -1109,6 +1135,11 @@ function bind() {
     const save = e.target.closest('[data-auth-save]')
     if (save) {
       saveSourceAuth(save.dataset.authSave)
+      return
+    }
+    const check = e.target.closest('[data-auth-check]')
+    if (check) {
+      checkBoss()
       return
     }
     const clear = e.target.closest('[data-auth-clear]')

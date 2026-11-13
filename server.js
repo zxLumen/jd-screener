@@ -11,7 +11,7 @@ import { parseJD, parseProfile } from './lib/parse.js'
 import { scoreOne } from './lib/score.js'
 import { skillName } from './lib/skills.js'
 import * as llm from './lib/llm.js'
-import { collect, hydrate, publicSources, unavailableSources, fetchJdFromUrl, SOURCES } from './lib/sources.js'
+import { collect, hydrate, publicSources, unavailableSources, fetchJdFromUrl, bossCheck, SOURCES } from './lib/sources.js'
 import { extractResume, guessTitle, guessSalary, ResumeError, MAX_RESUME_BYTES } from './lib/resume.js'
 import { FetchError } from './lib/http.js'
 import { initAuth, allAuthStatus, saveAuth, clearAuth } from './lib/auth.js'
@@ -20,7 +20,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const WEB_DIR = path.join(__dirname, 'web')
 const DATA_DIR = path.join(__dirname, 'data')
 const STATS_FILE = path.join(DATA_DIR, 'stats.json')
-const VERSION = '0.2.2'
+const VERSION = '0.2.3'
 const PORT = Number(process.env.PORT) || 8790
 const MAX_JDS = 8
 const MAX_JD_CHARS = 20000
@@ -419,6 +419,7 @@ function makeResult(profile, item, idx) {
     skills: jd.skills,
     jdStats: jd.stats,
     text: String(item.text || '').slice(0, MAX_RESULT_CHARS),
+    loose: Boolean(item.loose),
     ...scored,
   }
 }
@@ -497,6 +498,15 @@ async function handleApi(req, res, pathname) {
   if (req.method === 'GET' && pathname === '/api/admin/sources') {
     requireAdmin(req, ip)
     return sendJson(res, 200, { ok: true, auth: allAuthStatus(), sources: publicSources() })
+  }
+
+  // BOSS 体检：不改状态，拿当前/传入的 cookie 真打一次搜索接口，把病因分清楚
+  if (pathname === '/api/admin/sources/boss-check' && (req.method === 'GET' || req.method === 'POST')) {
+    requireAdmin(req, ip)
+    if (!allow(ip, 'bosscheck', 10, 60 * 60 * 1000)) throw new HttpError(429, '体检太频繁，稍后再试')
+    const body = req.method === 'POST' ? await readJson(req, 32 * 1024) : {}
+    const check = await bossCheck({ cookie: body.cookie, ua: body.ua })
+    return sendJson(res, 200, { ok: check.ok, check })
   }
 
   if (req.method === 'POST' && pathname === '/api/admin/sources') {

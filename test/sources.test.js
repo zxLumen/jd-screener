@@ -1,6 +1,17 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { parseLiepinList, parseLinkedinList, parseBossList, parseMaimaiListing, parseJobuiRss, publicSources, defaultSourceIds } from '../lib/sources.js'
+import {
+  parseLiepinList,
+  parseLinkedinList,
+  parseBossList,
+  parseMaimaiListing,
+  parseJobuiRss,
+  publicSources,
+  defaultSourceIds,
+  keywordTokens,
+  keywordHit,
+  bossCheck,
+} from '../lib/sources.js'
 
 const LIEPIN = `
 <div class="job-list-item" >
@@ -200,6 +211,33 @@ test('前程无忧：blocked + 登录/WAF reason', () => {
   assert.equal(s.blocked, true)
   assert.match(s.reason, /user-token|WAF/)
   assert.ok(!defaultSourceIds().includes('51job'))
+})
+
+test('脉脉关键词切分：去掉「工程师/开发」后缀', () => {
+  assert.ok(keywordTokens('后端开发').includes('后端'))
+  assert.ok(keywordTokens('前端工程师').includes('前端'))
+  assert.ok(keywordTokens('AI 应用工程师').includes('应用'))
+})
+
+test('脉脉关键词命中：词根命中、英文按词边界', () => {
+  assert.equal(keywordHit('后端工程师\n某公司 · 北京 · 30-50K', '后端开发'), true)
+  assert.equal(keywordHit('Java开发工程师-支付方向', '后端开发'), false)
+  assert.equal(keywordHit('Golang 服务端', 'go'), true)
+  assert.equal(keywordHit('google 工程师', 'go'), false)
+  assert.equal(keywordHit('Go 后端开发', 'go'), true)
+  assert.equal(keywordHit('AI 基础架构开发工程师', 'AI 应用工程师'), true)
+})
+
+test('脉脉来源说明写明是推荐流、非站内搜索', () => {
+  const s = publicSources().find((x) => x.id === 'maimai')
+  assert.match(s.note, /推荐流|站内搜索/)
+})
+
+test('BOSS 体检：没 cookie 直接给 no-cookie，不发请求', async () => {
+  const r = await bossCheck({ cookie: '' })
+  assert.equal(r.ok, false)
+  assert.equal(r.code, 'no-cookie')
+  assert.match(r.message, /cookie/i)
 })
 
 test('拉勾：blocked + WAF reason', () => {

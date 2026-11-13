@@ -1,11 +1,21 @@
 # STATUS · 对位（AI 智能筛选 JD）
 
-- **版本**：0.2.2
+- **版本**：0.2.3（**未上线，等拍板**；线上仍是 0.2.2）
 - **状态**：已上线（2026-11-10）
 - **线上**：https://duiwei.zxlumen.cn
 - **定位**：岗位搜索 + 简历匹配器。规则分永远可用，AI 只做加分项。
 - **仓库**：https://github.com/zxLumen/jd-screener（public）
 - **镜像**：`ghcr.io/zxlumen/jd-screener:latest`（public，匿名 pull）；v0.2.2 digest `sha256:d1085d41…`
+
+## 0.2.3（本地已改完，未上线）
+
+- **脉脉「匹配不到岗位」根因**：`maimai.cn/n/platform/job-list` 是**推荐流**，没有关键词搜索参数（`keyword/query/q/search` 全部无效，返回同一份 50 条）；旧实现只翻 2 页（100/4664）且用整串 `includes` 匹配，「后端开发」这种词在标题里几乎不存在 → 1 条或 0 条，0 条时直接报错。
+- **改法**：翻到 6 页（约 300 条，1 页 520ms + 其余 110ms/页）；关键词切分（去「工程师/开发/专家/经理…」后缀，`后端开发→后端`）；英文按词边界（`go` 不再命中 `google`，`go→golang` 走别名）；命中 <3 条时补 6 条同方向岗位并标 `loose`，前端显示「脉脉推荐 · 未命中关键词」。
+- **实测（本机直连，2026-11-13 23:20）**：`后端开发/北京` 1 → **11** 条；`前端/北京` 1 → **7**；`Python/北京` 1 → **9**；`Rust/北京` 报错 → **1 + 6 条推荐**；`大模型/北京` 8 条；单源耗时 110–760ms。
+- **BOSS 根因（新发现）**：服务器出口在**香港**（`103.205.240.62` / AS206888 HanMing HK），BOSS 对境外 IP 一律 `code 37`；线上 `data/sources-auth.json` 里 BOSS cookie 为空、UA 还是 11-10 测试留下的 `Mozilla/5.0 Test` —— 所以不是"没接"，是**没配 + 出口会被拦**。
+- **BOSS 改法**：新增「来源登录 → 体检」（`GET/POST /api/admin/sources/boss-check`，不改状态），直接区分 no-cookie / code 37 / 正常；新增 `JD_BOSS_PROXY`（HTTP/SOCKS 代理，curl `-x` 走代理）与 `JD_EGRESS_HINT`；code 37 文案点明「境外 IP 会判环境异常」。
+- **测试**：`node --test test/*.test.js` → **49 pass / 0 fail**（新增 4 组：切词、词边界/别名、脉脉来源说明、BOSS 无 cookie 体检）。
+- **验证**：本地 8897/8898 起服务；`/api/search` 脉脉单源返回 11 条、`/api/config` 文案已更新；`boss-check` 无令牌 401、无 cookie `no-cookie`、假 cookie `risk`（194ms）、走代理时 `proxy:true` 且错误可读。
 
 ## 0.2.2 已交付
 

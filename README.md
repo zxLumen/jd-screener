@@ -56,8 +56,8 @@ node --test test/*.test.js   # 40 个测试
 | V2EX 酷工作 | 公开 API | 创业公司/远程岗偏多，详情在列表里 |
 | 电鸭社区 | 公开 API | 远程/兼职为主，默认按远程处理 |
 | Remote OK | 公开 API | 英文远程岗，默认关闭；使用时保留回链 |
-| BOSS 直聘 | 登录 cookie（「来源登录」配置） | 搜索接口带 cookie + 同 UA；失效会返回 `code 37`，页面明确报错 |
-| 脉脉 | 公开岗位页 | Next.js `__NEXT_DATA__` 列表 + JSON-LD 详情；无需登录，按方向+城市筛，关键词本地过滤 |
+| BOSS 直聘 | 登录 cookie（「来源登录」配置）+ 大陆出口 IP | 搜索接口带 cookie + 同 UA；境外 IP（本机在香港）会直接 `code 37`；「来源登录 → 体检」可分清 cookie 失效还是出口被拦 |
+| 脉脉 | 公开推荐流（**没有站内搜索**） | Next.js `__NEXT_DATA__` 列表 + JSON-LD 详情；翻 6 页（约 300 条）本地命中关键词，命中 <3 条时补 6 条同方向岗位并标「脉脉推荐」 |
 | 职友集 | 公开 RSS | `rss/job` 列表含公司/薪资/年限/学历/简介；详情跳原站，不抓正文 |
 
 探测后**明确未接**（`blocked: true`，`reason` 写在 `/api/sources`）：
@@ -97,6 +97,7 @@ node --test test/*.test.js   # 40 个测试
 | GET | `/api/sources` | 已接来源 + 未配置来源及原因 |
 | GET | `/api/admin/sources` | **管理令牌**：来源 cookie 状态（只回掩码） |
 | POST | `/api/admin/sources` | **管理令牌**：保存/清除 BOSS、脉脉 cookie |
+| GET/POST | `/api/admin/sources/boss-check` | **管理令牌**：BOSS 体检（不改状态），分清 no-cookie / code 37 / 正常 |
 | GET | `/api/stats` | 匿名计数（筛选/搜索/简历/导入/AI/tokens） |
 | POST | `/api/resume` | 上传简历（base64），返回正文 + 解析出的画像 |
 | POST | `/api/search` | 按关键词/城市/来源搜岗位并匹配 |
@@ -132,8 +133,9 @@ curl -s http://localhost:8790/api/resume \
 
 ## 来源登录（BOSS / 脉脉）
 
-- **脉脉**：公开岗位页，不需要 cookie；默认已开。
-- **BOSS**：必须登录 cookie。打开网页「来源登录」，填 `JD_ADMIN_TOKEN`，粘贴浏览器里 `www.zhipin.com` 的完整 Cookie，UA 填同一个浏览器的（默认 Chrome Windows）。
+- **脉脉**：公开推荐流，不需要 cookie；默认已开。它没有关键词搜索接口，只能抓公开岗位再本地匹配，普通岗位（前端/Python 等）覆盖面有限，别把它当主源。
+- **BOSS**：必须登录 cookie **且出口 IP 在大陆**。打开网页「来源登录」，填 `JD_ADMIN_TOKEN`，粘贴浏览器里 `www.zhipin.com` 的完整 Cookie，UA 填同一个浏览器的（默认 Chrome Windows），先点「体检」再保存。
+- 对位服务器在香港（`103.205.240.62`），BOSS 对境外 IP 会直接返回 `code 37`。要么把 `JD_BOSS_PROXY` 指向大陆 HTTP/SOCKS 代理，要么在境内机器上搜完贴链接。
 - cookie 只落盘到容器卷 `data/sources-auth.json`（**0600**）；接口只返回 `len=… · 尾4=…`，不回原文；管理接口必须带 `X-Admin-Token`，30 次/分钟/IP 限流。
 - 也可用环境变量注入（重启生效，网页保存的优先）：
 
@@ -141,6 +143,8 @@ curl -s http://localhost:8790/api/resume \
 JD_ADMIN_TOKEN=...        # openssl rand -hex 24；不设置则「来源登录」关闭
 BOSS_COOKIE="..."           # 可选
 BOSS_UA="Mozilla/5.0 ..."   # 可选，必须与 cookie 同浏览器
+JD_BOSS_PROXY="http://127.0.0.1:1080"  # 可选：BOSS 请求走这个 HTTP/SOCKS 代理（需大陆出口）
+JD_EGRESS_HINT="..."        # 可选：code 37 时追加的出口提示文案
 ```
 
 **风险**：BOSS `__zp_stoken__` 与 UA、IP、时间绑定；服务器 IP 与家里浏览器不同时仍可能 `code 37`，需要重新复制 cookie。这是登录态抓取，不绕验证码、不自动投递；cookie 失效就报错，不静默降级。
