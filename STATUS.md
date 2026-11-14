@@ -1,11 +1,20 @@
 # STATUS · 对位（AI 智能筛选 JD）
 
-- **版本**：0.2.3
-- **状态**：已上线（2026-11-14 07:38 CST；应用 `ba08844`）
+- **版本**：0.2.4
+- **状态**：已上线（2026-11-14 08:28 CST；应用 `ac9e3a9`；大陆出口隧道待老板家里机器启动）
 - **线上**：https://duiwei.zxlumen.cn
 - **定位**：岗位搜索 + 简历匹配器。规则分永远可用，AI 只做加分项。
 - **仓库**：https://github.com/zxLumen/jd-screener（public）
-- **镜像**：`ghcr.io/zxlumen/jd-screener:latest`（public，匿名 pull）；v0.2.3 digest `sha256:40380bc9…`；回滚 tag `rollback-v022-pre`（= 0.2.2 `a38d6a7f…`）
+- **镜像**：`ghcr.io/zxlumen/jd-screener:latest`（public，匿名 pull）；v0.2.4 digest `sha256:2e90c113…`；回滚 tag `rollback-v023`（= 0.2.3 `sha256:40380bc9…`）、`rollback-v022-pre`（= 0.2.2 `a38d6a7f…`）
+
+## 0.2.4 上线验收（2026-11-14 08:28 CST）
+
+- 首页 **200 / 634ms / 13763B**；health `v0.2.4 / ai:true`；容器 **healthy / 33.47MiB / 96MiB / restarts=0**。
+- `GET /api/admin/exit`（管理令牌）：无隧道时 **offline / 19ms**（`configured:true, via:unix, error:offline`）；临时 loopback SOCKS5 模拟隧道 **online / 141ms / 103.205.240.62 / 中国 香港**，停掉后 **6ms offline**。2s 硬超时生效。
+- `GET /api/search?q=Python后端&city=北京`：**200 / 12 条 / 候选 42 / 3.35s**；源诊断 liepin 40、linkedin 20、v2ex 10、eleduck 25、jobui empty、maimai no-match。与本地未配置出口同条件 **12/42 一致**（0 回归）。
+- 出口桥：`jd-exit-bridge.service` **active**，`/run/jd-exit/bridge.sock` 0666，无新增 TCP 监听；`ss -lntp` 无隧道时无 1080，模拟隧道时只见 `127.0.0.1:1080`。
+- 10 源矩阵（经本机 SOCKS5，出口仍香港）：**6 解锁 / 3 风控 / 1 未识别**；直连对照 **6 解锁 / 2 未识别 / 2 风控**。北京家宽值需家里隧道启动后复跑。
+- 测试：`node --test test/*.test.js` → **57 pass / 0 fail**（新增 8 个：出口解析、SOCKS5、矩阵分类、API offline/401、GET search 校验）。
 
 ## 0.2.3 上线验收（2026-11-14 07:38 CST）
 
@@ -25,8 +34,9 @@
 - **测试**：`node --test test/*.test.js` → **49 pass / 0 fail**（新增 4 组：切词、词边界/别名、脉脉来源说明、BOSS 无 cookie 体检）。
 - **验证**：本地 8897/8898 起服务；`/api/search` 脉脉单源返回 11 条、`/api/config` 文案已更新；`boss-check` 无令牌 401、无 cookie `no-cookie`、假 cookie `risk`（194ms）、走代理时 `proxy:true` 且错误可读。
 
-## BOSS 待办（老板拍板：先贴 cookie 试 / 或买大陆代理）
+## BOSS 待办（老板拍板：先贴 cookie 试 / 或开家里隧道）
 
+0. **先补大陆出口**：家里 Linux 机器执行 `./deploy/exit-tunnel.sh`（microsocks 仅 127.0.0.1:1080 + `ssh -N -R 1080:127.0.0.1:1080`）；服务器 `GET /api/admin/exit` 看到 `online:true, beijing:true` 再做下面的 cookie 体检。
 1. 浏览器登录 `www.zhipin.com` → F12 → 任意 zhipin.com 请求 → 复制整串 Cookie。
 2. `https://duiwei.zxlumen.cn/` → 「来源登录」→ 填 `JD_ADMIN_TOKEN`（服务器 `docker/.env`）→ 粘贴 Cookie → UA 用当前浏览器 → **先点「体检」**。
 3. 体检 `ok` 再保存；`risk` 说明出口被拦，把 `JD_BOSS_PROXY` 指到大陆 HTTP/SOCKS 代理后重启 `duiwei` 再体检。

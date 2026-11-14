@@ -1,0 +1,150 @@
+{
+  "ok": true,
+  "label": "socks5h://127.0.0.1:1080",
+  "direct": false,
+  "exit": {
+    "configured": true,
+    "online": true,
+    "ip": "103.205.240.62",
+    "country": "中国",
+    "region": "香港",
+    "city": "香港",
+    "org": "suteidc.net",
+    "location": "中国 香港 香港",
+    "beijing": false,
+    "latencyMs": 378,
+    "error": null,
+    "checkedAt": "2026-11-14T00:24:22.961Z"
+  },
+  "startedAt": "2026-11-14T00:24:23.340Z",
+  "finishedAt": "2026-11-14T00:24:24.810Z",
+  "timeoutMs": 8000,
+  "sources": [
+    {
+      "i": 1,
+      "id": "liepin",
+      "name": "猎聘",
+      "url": "https://www.liepin.com/city-bj/zhaopin/?key=Python",
+      "finalUrl": "https://www.liepin.com/city-bj/zhaopin/?key=Python",
+      "status": 200,
+      "ms": 1205,
+      "bytes": 383779,
+      "verdict": "unlocked",
+      "feature": "正常返回岗位特征"
+    },
+    {
+      "i": 2,
+      "id": "linkedin",
+      "name": "LinkedIn",
+      "url": "https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search?keywords=Python&location=Beijing%2C%20China&start=0",
+      "finalUrl": "https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search?keywords=Python&location=Beijing%2C%20China&start=0",
+      "status": 200,
+      "ms": 533,
+      "bytes": 31311,
+      "verdict": "unlocked",
+      "feature": "正常返回岗位特征"
+    },
+    {
+      "i": 3,
+      "id": "v2ex",
+      "name": "V2EX 酷工作",
+      "url": "https://www.v2ex.com/api/topics/show.json?node_name=jobs",
+      "finalUrl": "https://www.v2ex.com/api/topics/show.json?node_name=jobs",
+      "status": 200,
+      "ms": 121,
+      "bytes": 82389,
+      "verdict": "unlocked",
+      "feature": "正常返回岗位特征"
+    },
+    {
+      "i": 4,
+      "id": "eleduck",
+      "name": "电鸭社区",
+      "url": "https://svc.eleduck.com/api/v1/posts?category=5&page=1&page_size=5",
+      "finalUrl": "https://svc.eleduck.com/api/v1/posts?category=5&page=1&page_size=5",
+      "status": 200,
+      "ms": 519,
+      "bytes": 53077,
+      "verdict": "unlocked",
+      "feature": "正常返回岗位特征"
+    },
+    {
+      "i": 5,
+      "id": "jobui",
+      "name": "职友集",
+      "url": "https://www.jobui.com/rss/job/?rss=jobKw%40Python%7CcityKw%40%E5%8C%97%E4%BA%AC",
+      "finalUrl": "https://www.jobui.com/rss/job/?rss=jobKw%40Python%7CcityKw%40%E5%8C%97%E4%BA%AC",
+      "status": 200,
+      "ms": 159,
+      "bytes": 9746,
+      "verdict": "unlocked",
+      "feature": "正常返回岗位特征"
+    },
+    {
+      "i": 6,
+      "id": "maimai",
+      "name": "脉脉",
+      "url": "https://maimai.cn/n/platform/job-list?page=1&direction=development&city=%E5%8C%97%E4%BA%AC",
+      "finalUrl": "https://maimai.cn/n/platform/job-list?page=1&direction=development&city=%E5%8C%97%E4%BA%AC",
+      "status": 200,
+      "ms": 552,
+      "bytes": 180177,
+      "verdict": "unlocked",
+      "feature": "正常返回岗位特征"
+    },
+    {
+      "i": 7,
+      "id": "zhaopin",
+      "name": "智联招聘",
+      "url": "https://www.zhaopin.com/sou/jl530/kwPython",
+      "finalUrl": "https://www.zhaopin.com/sou/jl530/kwPython",
+      "status": 200,
+      "ms": 73,
+      "bytes": 1996,
+      "verdict": "blocked",
+      "feature": "智联 Security Verification"
+    },
+    {
+      "i": 8,
+      "id": "51job",
+      "name": "前程无忧",
+      "url": "https://we.51job.com/pc/search?keyword=Python&jobArea=010000",
+      "finalUrl": "https://we.51job.com/pc/search?keyword=Python&jobArea=010000",
+      "status": 200,
+      "ms": 230,
+      "bytes": 8111,
+      "verdict": "unknown",
+      "feature": "200 JS shell（无岗位数据）"
+    },
+    {
+      "i": 9,
+      "id": "lagou",
+      "name": "拉勾",
+      "url": "https://www.lagou.com/wn/jobs?kd=Python&city=%E5%8C%97%E4%BA%AC",
+      "finalUrl": "https://www.lagou.com/wn/jobs?kd=Python&city=%E5%8C%97%E4%BA%AC",
+      "status": 200,
+      "ms": 279,
+      "bytes": 11201,
+      "verdict": "blocked",
+      "feature": "阿里云 WAF / 滑块"
+    },
+    {
+      "i": 10,
+      "id": "boss",
+      "name": "BOSS直聘",
+      "url": "https://www.zhipin.com/wapi/zpgeek/search/joblist.json?scene=1&query=Python&city=101010100&page=1&pageSize=5",
+      "finalUrl": "https://www.zhipin.com/wapi/zpgeek/search/joblist.json?scene=1&query=Python&city=101010100&page=1&pageSize=5",
+      "status": 200,
+      "ms": 275,
+      "bytes": 69,
+      "verdict": "blocked",
+      "feature": "BOSS code 35/37 IP 异常"
+    }
+  ],
+  "summary": {
+    "unlocked": 6,
+    "blocked": 3,
+    "unknown": 1
+  },
+  "conclusion": "✅ 解锁 6 / ⛔ 风控 3 / ❔ 未识别 1"
+}
