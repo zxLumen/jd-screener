@@ -18,8 +18,13 @@
       JD_RESUME_RATE: ${JD_RESUME_RATE:-20}
       # 来源登录令牌（BOSS/脉脉 cookie 管理）；不填则网页「来源登录」关闭
       JD_ADMIN_TOKEN: ${JD_ADMIN_TOKEN:-}
+      # 大陆出口：Docker 容器经 unix socket 访问宿主机 127.0.0.1:1080 的 SSH 反向隧道
+      # 留空 = 不启用出口（搜索行为与 0.2.3 一致）
+      JD_EXIT_PROXY: ${JD_EXIT_PROXY:-}
+      JD_EXIT_TIMEOUT_MS: ${JD_EXIT_TIMEOUT_MS:-2000}
     volumes:
       - duiwei-data:/app/data
+      - /run/jd-exit:/run/jd-exit:ro
     expose:
       - "8790"
     networks:

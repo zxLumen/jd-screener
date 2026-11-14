@@ -1,0 +1,35 @@
+[Unit]
+Description=JD exit unix-socket bridge to loopback SOCKS5
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=jd-exit
+Group=jd-exit
+RuntimeDirectory=jd-exit
+RuntimeDirectoryMode=0755
+Environment=JD_EXIT_SOCK=/run/jd-exit/bridge.sock
+Environment=JD_EXIT_UPSTREAM_HOST=127.0.0.1
+Environment=JD_EXIT_UPSTREAM_PORT=1080
+ExecStart=/usr/bin/node /opt/jd-exit/exit-bridge.mjs
+Restart=always
+RestartSec=2
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+RestrictNamespaces=yes
+LockPersonality=yes
+StandardOutput=null
+StandardError=journal
+LogLevelMax=notice
+LogRateLimitIntervalSec=30s
+LogRateLimitBurst=20
+
+[Install]
+WantedBy=multi-user.target

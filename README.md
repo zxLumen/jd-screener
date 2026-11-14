@@ -24,7 +24,7 @@ PORT=8790 node server.js
 打开 `http://localhost:8790/`。不配 AI 令牌时自动进入**规则模式**，秒出结果。
 
 ```bash
-node --test test/*.test.js   # 40 个测试
+node --test test/*.test.js   # 56 个测试
 ```
 
 > PDF 解析优先用 `pdftotext`（容器内已装 poppler-utils），没有时退回内置抽取；DOCX 用内置 zip 解压，不依赖 npm 包。猎聘用 `curl` 抓取（见下方「来源」）。
@@ -98,9 +98,10 @@ node --test test/*.test.js   # 40 个测试
 | GET | `/api/admin/sources` | **管理令牌**：来源 cookie 状态（只回掩码） |
 | POST | `/api/admin/sources` | **管理令牌**：保存/清除 BOSS、脉脉 cookie |
 | GET/POST | `/api/admin/sources/boss-check` | **管理令牌**：BOSS 体检（不改状态），分清 no-cookie / code 37 / 正常 |
+| GET | `/api/admin/exit` | **管理令牌**：当前出口 IP / 归属地 / online·offline（2s 硬超时，未配置毫秒级返回） |
 | GET | `/api/stats` | 匿名计数（筛选/搜索/简历/导入/AI/tokens） |
 | POST | `/api/resume` | 上传简历（base64），返回正文 + 解析出的画像 |
-| POST | `/api/search` | 按关键词/城市/来源搜岗位并匹配 |
+| POST | `/api/search` | 按关键词/城市/来源搜岗位并匹配（`GET /api/search?q=…&city=…&sources=liepin,v2ex` 也可，便于冒烟） |
 | POST | `/api/import-jd` | 从公开 JD 链接导入正文 |
 | POST | `/api/parse-profile` | 解析画像，返回识别到的技能 |
 | POST | `/api/parse-jd` | 解析单条 JD，不调模型 |
@@ -130,6 +131,12 @@ curl -s http://localhost:8790/api/resume \
 ```
 
 限流：AI **20 次/小时/IP**（缓存命中不占额度）、全站 **500 次/天**；搜索 **30 次/小时/IP**、全站 **300 次/天**；简历解析 **20 次/小时/IP**；总请求 **240 次/小时/IP**。可用 `JD_*` 环境变量调整。超限降级或返回 429，不会把错误藏起来。
+
+## 出口（可选，切到北京家宽）
+
+- 家里 Linux 机器跑 `deploy/exit-tunnel.sh`：装 microsocks（仅 `127.0.0.1:1080`、专用低权限用户、systemd 托管、日志最小化），再执行 `ssh -N -R 1080:127.0.0.1:1080 ubuntu@duiwei.zxlumen.cn`，出口即切到北京家宽；脚本只用现有 `~/.ssh` 密钥，不生成/不回显私钥。
+- 服务器跑 `jd-exit-bridge.service`（unix socket，不新增 TCP 监听），容器设 `JD_EXIT_PROXY=unix:/run/jd-exit/bridge.sock`；`GET /api/admin/exit` 带 `X-Admin-Token` 返回 IP、归属地、online/offline。
+- 没配出口时接口毫秒级返回 `configured:false`，搜索行为与 `0.2.3` 一致；`npm run exit:doctor` 经出口探 10 个源，输出解锁矩阵（含直连对照组 `-- --direct`）。详见 `deploy/README-exit.md`。
 
 ## 来源登录（BOSS / 脉脉）
 
@@ -258,4 +265,4 @@ deploy/                compose 服务片段、Caddy 路由、应用栏图标
 
 ## 版本
 
-`0.2.2` · 2026-11-10 · 搜索 + 简历上传 + 来源登录 + 职友集 RSS / blocked 探测。见 `STATUS.md`。
+`0.2.4` · 2026-11-14 · 新增大陆出口体检（`/api/admin/exit`、10 源解锁矩阵、家庭 SSH 反向隧道）。见 `STATUS.md`。

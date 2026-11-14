@@ -62,6 +62,8 @@ before(async () => {
       ZX_AI_GATEWAY_URL: '',
       JD_ADMIN_TOKEN: 'test-token',
       JD_AUTH_FILE: AUTH_FILE,
+      JD_EXIT_PROXY: '',
+      JD_EXIT_TIMEOUT_MS: '300',
     },
     stdio: ['ignore', 'pipe', 'pipe'],
   })
@@ -252,4 +254,29 @@ test('管理接口：401 / 保存 cookie 只回掩码 / 清除', async () => {
   assert.equal(clear.status, 200)
   const after = await clear.json()
   assert.equal(after.auth.configured, false)
+})
+
+test('GET /api/search 查询串兼容：空关键词 / 无可用来源 400', async () => {
+  const empty = await fetch(`${BASE}/api/search?q=&city=北京`)
+  assert.equal(empty.status, 400)
+  const noSource = await fetch(`${BASE}/api/search?q=Python&city=北京&sources=boss`)
+  assert.equal(noSource.status, 400)
+})
+
+test('GET /api/admin/exit：401 / 未配置 2s 内返回 offline', async () => {
+  const no = await fetch(`${BASE}/api/admin/exit`)
+  assert.equal(no.status, 401)
+
+  const headers = { 'X-Admin-Token': 'test-token' }
+  const t0 = Date.now()
+  const r = await fetch(`${BASE}/api/admin/exit`, { headers })
+  const elapsed = Date.now() - t0
+  assert.equal(r.status, 200)
+  const d = await r.json()
+  assert.equal(d.ok, true)
+  assert.equal(d.configured, false)
+  assert.equal(d.online, false)
+  assert.equal(d.error, 'not-configured')
+  assert.match(d.checkedAt, /^\d{4}-\d{2}-\d{2}T/)
+  assert.ok(elapsed < 2_000, `exit endpoint should be fast, got ${elapsed}ms`)
 })

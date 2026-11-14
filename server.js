@@ -11,16 +11,17 @@ import { parseJD, parseProfile } from './lib/parse.js'
 import { scoreOne } from './lib/score.js'
 import { skillName } from './lib/skills.js'
 import * as llm from './lib/llm.js'
-import { collect, hydrate, publicSources, unavailableSources, fetchJdFromUrl, bossCheck, SOURCES } from './lib/sources.js'
+import { collect, hydrate, publicSources, unavailableSources, fetchJdFromUrl, bossCheck, SOURCES, defaultSourceIds } from './lib/sources.js'
 import { extractResume, guessTitle, guessSalary, ResumeError, MAX_RESUME_BYTES } from './lib/resume.js'
 import { FetchError } from './lib/http.js'
 import { initAuth, allAuthStatus, saveAuth, clearAuth } from './lib/auth.js'
+import { probeExit, exitTarget, EXIT_TIMEOUT_MS } from './lib/exit.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const WEB_DIR = path.join(__dirname, 'web')
 const DATA_DIR = path.join(__dirname, 'data')
 const STATS_FILE = path.join(DATA_DIR, 'stats.json')
-const VERSION = '0.2.3'
+const VERSION = '0.2.4'
 const PORT = Number(process.env.PORT) || 8790
 const MAX_JDS = 8
 const MAX_JD_CHARS = 20000
@@ -500,6 +501,19 @@ async function handleApi(req, res, pathname) {
     return sendJson(res, 200, { ok: true, auth: allAuthStatus(), sources: publicSources() })
   }
 
+  // 出口体检：2s 硬超时；未配置/隧道离线都立即返回，不影响搜索
+  if (req.method === 'GET' && pathname === '/api/admin/exit') {
+    requireAdmin(req, ip)
+    if (!allow(ip, 'exitcheck', 30, 60 * 1000)) throw new HttpError(429, '出口体检太频繁，稍后再试')
+    const exit = await probeExit({ useCache: false })
+    return sendJson(res, 200, {
+      ok: true,
+      ...exit,
+      via: exitTarget()?.type || null,
+      timeoutMs: EXIT_TIMEOUT_MS,
+    })
+  }
+
   // BOSS 体检：不改状态，拿当前/传入的 cookie 真打一次搜索接口，把病因分清楚
   if (pathname === '/api/admin/sources/boss-check' && (req.method === 'GET' || req.method === 'POST')) {
     requireAdmin(req, ip)
@@ -603,12 +617,31 @@ async function handleApi(req, res, pathname) {
     }
   }
 
-  if (req.method === 'POST' && pathname === '/api/search') {
+  if ((req.method === 'POST' || req.method === 'GET') && pathname === '/api/search') {
     if (!allow(ip, 'search', SEARCH_RATE, 60 * 60 * 1000) || !allow(ip, 'total', TOTAL_RATE, 60 * 60 * 1000)) {
       throw new HttpError(429, '搜索太频繁，请稍后再试')
     }
     if (!allowGlobalSearch()) throw new HttpError(429, '今日全站搜索额度已用完，明天再来')
-    const input = validateSearchInput(await readJson(req))
+    let body
+    if (req.method === 'GET') {
+      const u = new URL(req.url, 'http://localhost')
+      const q = String(u.searchParams.get('q') || u.searchParams.get('query') || '').trim()
+      const city = String(u.searchParams.get('city') || '').trim()
+      const src = String(u.searchParams.get('sources') || '')
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean)
+      body = {
+        profile: { title: q, city, resumeText: '' },
+        query: q,
+        city,
+        limit: Number(u.searchParams.get('limit')) || 12,
+        sources: src.length ? src : defaultSourceIds(),
+      }
+    } else {
+      body = await readJson(req)
+    }
+    const input = validateSearchInput(body)
     const started = Date.now()
     stats.searches++
 

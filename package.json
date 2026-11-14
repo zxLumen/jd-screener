@@ -1,13 +1,14 @@
 {
   "name": "jd-screener",
-  "version": "0.2.2",
+  "version": "0.2.4",
   "private": true,
   "type": "module",
   "description": "对位 · AI 智能筛选 JD（零依赖自托管，给求职者）",
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch server.js",
-    "test": "node --test test/*.test.js"
+    "test": "node --test test/*.test.js",
+    "exit:doctor": "node scripts/exit-doctor.mjs"
   },
   "engines": {
     "node": ">=20"
