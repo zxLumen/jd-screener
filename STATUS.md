@@ -1,20 +1,22 @@
 # STATUS · 对位（AI 智能筛选 JD）
 
 - **版本**：0.2.4
-- **状态**：已上线（2026-11-14 08:28 CST；应用 `ac9e3a9`；大陆出口隧道待老板家里机器启动）
+- **状态**：已上线（2026-11-14 08:46 CST；应用 `3359281`；大陆出口隧道待老板家里机器启动）
 - **线上**：https://duiwei.zxlumen.cn
 - **定位**：岗位搜索 + 简历匹配器。规则分永远可用，AI 只做加分项。
 - **仓库**：https://github.com/zxLumen/jd-screener（public）
-- **镜像**：`ghcr.io/zxlumen/jd-screener:latest`（public，匿名 pull）；v0.2.4 digest `sha256:2e90c113…`；回滚 tag `rollback-v023`（= 0.2.3 `sha256:40380bc9…`）、`rollback-v022-pre`（= 0.2.2 `a38d6a7f…`）
+- **镜像**：`ghcr.io/zxlumen/jd-screener:latest`（public，匿名 pull）；v0.2.4 digest `sha256:80f1d73e…`；回滚 tag `rollback-v023`（= 0.2.3 `sha256:40380bc9…`）、`rollback-v022-pre`（= 0.2.2 `a38d6a7f…`）
 
-## 0.2.4 上线验收（2026-11-14 08:28 CST）
+## 0.2.4 上线验收（2026-11-14 08:46 CST）
 
-- 首页 **200 / 634ms / 13763B**；health `v0.2.4 / ai:true`；容器 **healthy / 33.47MiB / 96MiB / restarts=0**。
-- `GET /api/admin/exit`（管理令牌）：无隧道时 **offline / 19ms**（`configured:true, via:unix, error:offline`）；临时 loopback SOCKS5 模拟隧道 **online / 141ms / 103.205.240.62 / 中国 香港**，停掉后 **6ms offline**。2s 硬超时生效。
-- `GET /api/search?q=Python后端&city=北京`：**200 / 12 条 / 候选 42 / 3.35s**；源诊断 liepin 40、linkedin 20、v2ex 10、eleduck 25、jobui empty、maimai no-match。与本地未配置出口同条件 **12/42 一致**（0 回归）。
-- 出口桥：`jd-exit-bridge.service` **active**，`/run/jd-exit/bridge.sock` 0666，无新增 TCP 监听；`ss -lntp` 无隧道时无 1080，模拟隧道时只见 `127.0.0.1:1080`。
-- 10 源矩阵（经本机 SOCKS5，出口仍香港）：**6 解锁 / 3 风控 / 1 未识别**；直连对照 **6 解锁 / 2 未识别 / 2 风控**。北京家宽值需家里隧道启动后复跑。
-- 测试：`node --test test/*.test.js` → **57 pass / 0 fail**（新增 8 个：出口解析、SOCKS5、矩阵分类、API offline/401、GET search 校验）。
+- 首页 **200 / 143ms / 13763B**；health `v0.2.4 / ai:true`；容器 **healthy / 33.47MiB / 96MiB / restarts=0**。
+- 服务器 `jd-exit-socks.service`（microsocks）**active**，只监听 `127.0.0.1:1080`，强制认证、低权限 `jd-exit`；`ss` 无 `0.0.0.0`。
+- `GET /api/admin/exit`（管理令牌）：无隧道（回退 SOCKS 认证拒绝）**offline / 5–11ms**（`configured:true, via:unix, error:offline`）；临时 no-auth SOCKS 模拟隧道 **online / 309–424ms / 103.205.240.62 / 中国 香港**，停掉后恢复 offline。2s 硬超时生效。
+- `GET /api/search?q=Python后端&city=北京`：**200 / 12 条 / 候选 42 / 3.71s**；源诊断 liepin 40、linkedin 20、v2ex 10、eleduck 25、jobui empty、maimai no-match。与本地未配置出口同条件 **12/42 一致**（0 回归）。
+- 出口桥：`jd-exit-bridge.service` **active**，`/run/jd-exit/bridge.sock` 0666，无新增 TCP 监听；模拟隧道时 `ss` 只见 `127.0.0.1:1080`。
+- 10 源矩阵（经 127.0.0.1:1080 模拟隧道，出口仍香港）：**6 解锁 / 3 风控 / 1 未识别**；直连对照 **6 解锁 / 2 未识别 / 2 风控**。北京家宽值需家里隧道启动后复跑。
+- 回滚入口：`deploy/duiwei.service`（compose 包装）已装，`systemctl restart duiwei` 实测可用。
+- 测试：`node --test test/*.test.js` → **58 pass / 0 fail**（相对 0.2.3 新增 9 个：出口解析、SOCKS5、认证拒绝归 offline、矩阵分类、API offline/401、GET search 校验）。
 
 ## 0.2.3 上线验收（2026-11-14 07:38 CST）
 
