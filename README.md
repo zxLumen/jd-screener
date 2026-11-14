@@ -134,9 +134,9 @@ curl -s http://localhost:8790/api/resume \
 
 ## 出口（可选，切到北京家宽）
 
-- 家里 Linux 机器跑 `deploy/exit-tunnel.sh`：装 microsocks（仅 `127.0.0.1:1080`、专用低权限用户、systemd 托管、日志最小化），再执行 `ssh -N -R 1080:127.0.0.1:1080 ubuntu@duiwei.zxlumen.cn`，出口即切到北京家宽；脚本只用现有 `~/.ssh` 密钥，不生成/不回显私钥。
-- 服务器跑 `jd-exit-bridge.service`（unix socket，不新增 TCP 监听），容器设 `JD_EXIT_PROXY=unix:/run/jd-exit/bridge.sock`；`GET /api/admin/exit` 带 `X-Admin-Token` 返回 IP、归属地、online/offline。
-- 没配出口时接口毫秒级返回 `configured:false`，搜索行为与 `0.2.3` 一致；`npm run exit:doctor` 经出口探 10 个源，输出解锁矩阵（含直连对照组 `-- --direct`）。详见 `deploy/README-exit.md`。
+- 服务器常驻 `jd-exit-socks`（microsocks，仅 `127.0.0.1:1080`，专用 `jd-exit` 用户，systemd 托管，强制用户名密码）作为回退/占位；应用探针不带凭据，所以无隧道时 `/api/admin/exit` 会快速返回 `offline`。
+- 家里 Linux 机器跑 `deploy/exit-tunnel.sh`：装本机 microsocks（仅 `127.0.0.1:1080`、systemd、日志最小化），暂停服务器回退 SOCKS 后执行 `ssh -N -R 1080:127.0.0.1:1080 ubuntu@duiwei.zxlumen.cn`，出口即切到北京家宽；退出时自动恢复回退 SOCKS。脚本只用现有 `~/.ssh` 密钥，不生成/不回显私钥。
+- 服务器 `jd-exit-bridge.service` 用 unix socket（不新增 TCP 监听）把容器接到宿主机 loopback；`GET /api/admin/exit` 带 `X-Admin-Token` 返回 IP、归属地、online/offline；`npm run exit:doctor` 经出口探 10 个源，输出解锁矩阵（`-- --direct` 为直连对照）。详见 `deploy/README-exit.md`。
 
 ## 来源登录（BOSS / 脉脉）
 

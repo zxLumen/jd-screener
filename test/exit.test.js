@@ -89,6 +89,26 @@ test('probeExit：出口连不上时 2s 内返回 offline', async () => {
   assert.ok(elapsed < 900, `should fail fast, got ${elapsed}ms`)
 })
 
+test('probeExit：SOCKS 要求认证时按 offline 处理', async () => {
+  resetExitCache()
+  const server = net.createServer((client) => {
+    client.once('data', () => client.end(Buffer.from([5, 0xff])))
+  })
+  await new Promise((r) => server.listen(0, '127.0.0.1', r))
+  try {
+    const r = await probeExit({
+      target: { type: 'tcp', host: '127.0.0.1', port: server.address().port, label: 'auth' },
+      timeoutMs: 500,
+      useCache: false,
+    })
+    assert.equal(r.configured, true)
+    assert.equal(r.online, false)
+    assert.equal(r.error, 'offline')
+  } finally {
+    server.close()
+  }
+})
+
 /** 本地假 SOCKS5：只接受 CONNECT，统一转到 127.0.0.1:targetPort。 */
 function startFakeSocks(targetPort) {
   return new Promise((resolve) => {

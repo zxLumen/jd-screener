@@ -1,0 +1,32 @@
+[Unit]
+Description=JD exit SOCKS5 fallback (loopback only, auth required)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=jd-exit
+Group=jd-exit
+EnvironmentFile=/etc/jd-exit/socks.env
+# -i 127.0.0.1 是关键：绝不监听 0.0.0.0
+ExecStart=/usr/bin/microsocks -i 127.0.0.1 -p 1080 -u ${JD_SOCKS_USER} -P ${JD_SOCKS_PASS}
+Restart=always
+RestartSec=2
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_INET AF_INET6
+RestrictNamespaces=yes
+LockPersonality=yes
+StandardOutput=null
+StandardError=journal
+LogLevelMax=notice
+LogRateLimitIntervalSec=30s
+LogRateLimitBurst=20
+
+[Install]
+WantedBy=multi-user.target

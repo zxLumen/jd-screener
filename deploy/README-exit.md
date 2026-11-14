@@ -18,7 +18,29 @@ ssh -N -R 1080:127.0.0.1:1080 ubuntu@duiwei.zxlumen.cn
 
 保持窗口/终端复用器（tmux）运行即可。Ctrl-C 或断线后服务器出口回到原网络。
 
-## 2. 服务器（Docker 容器访问 loopback 的桥）
+## 2. 服务器（回退 SOCKS + Docker 容器访问 loopback 的桥）
+
+服务器先装一个**回退 SOCKS**，只监听 `127.0.0.1:1080`，并强制用户名密码：
+应用探针不带凭据，所以无隧道时 `/api/admin/exit` 会得到 `offline`；家里隧道起来前，
+`deploy/exit-tunnel.sh` 会先暂停这个服务，把 1080 让给 sshd 的反向隧道，退出时再恢复。
+
+```bash
+sudo apt-get install -y microsocks
+sudo useradd --system --no-create-home --shell /usr/sbin/nologin jd-exit 2>/dev/null || true
+sudo install -d -m 0750 /etc/jd-exit
+
+# 只生成一次；密码存 root 0600，不打印
+if [ ! -f /etc/jd-exit/socks.env ]; then
+  printf 'JD_SOCKS_USER=jdexit_%s\nJD_SOCKS_PASS=%s\n' "$(openssl rand -hex 4)" "$(openssl rand -hex 20)" |
+    sudo tee /etc/jd-exit/socks.env >/dev/null
+  sudo chmod 600 /etc/jd-exit/socks.env
+fi
+
+# 写 jd-exit-socks.service（ExecStart 只绑 127.0.0.1；模板见 deploy/jd-exit-socks.service）
+sudo install -m 0644 deploy/jd-exit-socks.service /etc/systemd/system/jd-exit-socks.service
+sudo systemctl daemon-reload && sudo systemctl enable --now jd-exit-socks
+ss -lntp | grep ':1080'   # 必须只有 127.0.0.1:1080
+```
 
 SSH 反向隧道只监听宿主机 `127.0.0.1:1080`；容器在 bridge 网络看不到宿主机 loopback。
 用一个只读 unix socket 桥接，不新增任何 TCP 监听：
@@ -27,8 +49,6 @@ SSH 反向隧道只监听宿主机 `127.0.0.1:1080`；容器在 bridge 网络看
 sudo install -d -o jd-exit -g jd-exit /opt/jd-exit
 sudo install -m 0755 deploy/exit-bridge.mjs /opt/jd-exit/exit-bridge.mjs
 sudo install -m 0644 deploy/jd-exit-bridge.service /etc/systemd/system/jd-exit-bridge.service
-# 没有 jd-exit 用户时：
-sudo useradd --system --no-create-home --shell /usr/sbin/nologin jd-exit
 sudo systemctl daemon-reload
 sudo systemctl enable --now jd-exit-bridge
 ```
