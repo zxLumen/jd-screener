@@ -39,6 +39,7 @@ const MAX_SEARCH_CANDIDATES = 24
 const MAX_RESULT_CHARS = 6000
 const SEARCH_BUDGET_MS = Number(process.env.JD_SEARCH_BUDGET_MS) || 3000
 const SEARCH_RESERVE_MS = Number(process.env.JD_SEARCH_RESERVE_MS) || 650
+const SEARCH_DETAIL_MIN_MS = Number(process.env.JD_SEARCH_DETAIL_MIN_MS) || 1000
 const SEARCH_CACHE_TTL = Number(process.env.JD_SEARCH_CACHE_TTL_MS) || 5 * 60 * 1000
 const SEARCH_CACHE_MAX = Number(process.env.JD_SEARCH_CACHE_MAX) || 200
 const searchCache = new SearchCache({ max: SEARCH_CACHE_MAX, ttl: SEARCH_CACHE_TTL })
@@ -740,7 +741,7 @@ async function handleApi(req, res, pathname) {
     const hydrateStart = Date.now()
     let detailed
     let hydratePartial = false
-    if (deadline - Date.now() >= 600) {
+    if (deadline - Date.now() >= SEARCH_DETAIL_MIN_MS) {
       const h = await hydrate(picked, {
         limit: MAX_SEARCH_CANDIDATES,
         concurrency: 5,
