@@ -1,11 +1,21 @@
 # STATUS · 对位（AI 智能筛选 JD）
 
-- **版本**：0.2.4
-- **状态**：已上线（2026-11-14 08:46 CST；应用 `3359281`；大陆出口隧道待老板家里机器启动）
+- **版本**：0.2.5
+- **状态**：已上线（2026-11-19 08:56 CST；应用 `1fc3da7`；搜索提速）
 - **线上**：https://duiwei.zxlumen.cn
 - **定位**：岗位搜索 + 简历匹配器。规则分永远可用，AI 只做加分项。
 - **仓库**：https://github.com/zxLumen/jd-screener（public）
-- **镜像**：`ghcr.io/zxlumen/jd-screener:latest`（public，匿名 pull）；v0.2.4 digest `sha256:80f1d73e…`；回滚 tag `rollback-v023`（= 0.2.3 `sha256:40380bc9…`）、`rollback-v022-pre`（= 0.2.2 `a38d6a7f…`）
+- **镜像**：`ghcr.io/zxlumen/jd-screener:latest`（public，匿名 pull）；v0.2.5 digest `sha256:b8956c58…`；回滚 tag `rollback-search-pre`（= 0.2.4 `sha256:4d21c46e…`），旧版 `rollback-v023`（0.2.3）/ `rollback-v022-pre`（0.2.2）
+
+## 0.2.5 搜索提速（2026-11-19 08:56 CST）
+
+- **改法**：6 源 `Promise.allSettled` 同时发（不再 4 路排队）；单源 2.5s（jobui 1.5s）、总预算 3s（网络阶段 2.35s + 0.65s 打分/序列化）；冷启动剩余预算 <1s 时直接返回列表摘要不补详情；同 q/city/来源/画像结果缓存 5 分钟、最多 200 条；列表/降级条目复用已打分结果，去重/排序逻辑不变。
+- **改前基线（旧 commit `5f1c9b5`，同窗口 5×3）**：python p50 **3502ms / p95 6367ms**，golang **715 / 8095ms**，产品经理 **5206 / 7367ms**；总体 **p50 3686 / p95 8095ms**。
+- **改后 5×3（最终 config）**：python **10 / 2965ms**，golang **11 / 1591ms**，产品经理 **11 / 1617ms**；总体 **p50 11ms / p95 2965ms**。p95 的唯一尖峰是 python 一次 maimai 2.3s 抖动，总预算仍守住 3s。
+- **结果一致性**：15 次 ×12 = **180 条**（与基线 180 条一致）；重复 id **0**；sourceHits 合计 **1620 vs 1720（-5.8%）**。liepin/linkedin/v2ex/eleduck 完全一致；jobui 0（1.5s 上限）、maimai -50（一次 >2.35s 抖动）。
+- **线上冒烟**：首页 200；health **200 / v0.2.5**；连续 3 次搜索（python/golang/产品经理）均 **200**，冷启动 **1.93s / 1.78s / 1.82s**，返回 12 条；随后同 q 命中缓存 **0.12s**。
+- **测试**：`node --test test/*.test.js` → **62 pass / 0 fail**（新增 4 个：6 源并发、单源超时、预算内 hydrate、缓存 TTL/200 上限/画像隔离）。
+- **注意**：LinkedIn guest 接口偶发 429/冷却，jobui RSS 在香港出口下经常 5s 挂起；最终 5×3 样本 LinkedIn 300 正常，jobui 全超时。两者都是源侧波动，不是超时逻辑；结果条数仍保持 12。
 
 ## 0.2.4 上线验收（2026-11-14 08:46 CST）
 
