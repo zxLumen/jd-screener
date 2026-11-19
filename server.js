@@ -16,12 +16,13 @@ import { extractResume, guessTitle, guessSalary, ResumeError, MAX_RESUME_BYTES }
 import { FetchError } from './lib/http.js'
 import { initAuth, allAuthStatus, saveAuth, clearAuth } from './lib/auth.js'
 import { probeExit, exitTarget, EXIT_TIMEOUT_MS } from './lib/exit.js'
+import { SearchCache } from './lib/search-cache.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const WEB_DIR = path.join(__dirname, 'web')
 const DATA_DIR = path.join(__dirname, 'data')
 const STATS_FILE = path.join(DATA_DIR, 'stats.json')
-const VERSION = '0.2.4'
+const VERSION = '0.2.5'
 const PORT = Number(process.env.PORT) || 8790
 const MAX_JDS = 8
 const MAX_JD_CHARS = 20000
@@ -36,6 +37,11 @@ const RESUME_RATE = Number(process.env.JD_RESUME_RATE) || 20
 const MAX_SEARCH = 20
 const MAX_SEARCH_CANDIDATES = 24
 const MAX_RESULT_CHARS = 6000
+const SEARCH_BUDGET_MS = Number(process.env.JD_SEARCH_BUDGET_MS) || 3000
+const SEARCH_RESERVE_MS = Number(process.env.JD_SEARCH_RESERVE_MS) || 550
+const SEARCH_CACHE_TTL = Number(process.env.JD_SEARCH_CACHE_TTL_MS) || 5 * 60 * 1000
+const SEARCH_CACHE_MAX = Number(process.env.JD_SEARCH_CACHE_MAX) || 200
+const searchCache = new SearchCache({ max: SEARCH_CACHE_MAX, ttl: SEARCH_CACHE_TTL })
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -451,6 +457,19 @@ function validateSearchInput(body) {
   return { profile, query, city, sources, limit }
 }
 
+/** 搜索统计：缓存命中也要记，保证 sourceHits 与真实搜索可比。 */
+function recordSearchStats(results) {
+  stats.jds += results.length
+  for (const r of results) {
+    stats.verdicts[r.verdict] = (stats.verdicts[r.verdict] || 0) + 1
+    stats.sourceHits[r.source] = (stats.sourceHits[r.source] || 0) + 1
+  }
+  if (results.length) stats.searchOk++
+  else stats.searchEmpty++
+  stats.lastAt = new Date().toISOString()
+  persistStats()
+}
+
 async function handleApi(req, res, pathname) {
   const ip = clientIp(req)
 
@@ -645,7 +664,36 @@ async function handleApi(req, res, pathname) {
     const started = Date.now()
     stats.searches++
 
-    const { items, diagnostics } = await collect(input)
+    const cacheOn = process.env.JD_SEARCH_CACHE !== '0'
+    if (cacheOn) {
+      const cached = searchCache.get(input)
+      if (cached) {
+        recordSearchStats(cached.results)
+        const elapsedMs = Date.now() - started
+        const sources = (cached.meta.sources || []).map((s) => ({
+          ...s,
+          cached: true,
+          originalMs: s.ms,
+          ms: 0,
+        }))
+        return sendJson(res, 200, {
+          ok: true,
+          results: cached.results,
+          meta: {
+            ...cached.meta,
+            elapsedMs,
+            cached: true,
+            originalElapsedMs: cached.meta.elapsedMs,
+            sources,
+            ai: llm.configured(),
+          },
+        })
+      }
+    }
+
+    const deadline = started + SEARCH_BUDGET_MS - SEARCH_RESERVE_MS
+    const { items, diagnostics, partial: collectPartial } = await collect({ ...input, deadline })
+    const collectMs = Date.now() - started
     const seen = new Set()
     const candidates = []
     for (const item of items) {
@@ -688,8 +736,32 @@ async function handleApi(req, res, pathname) {
     const leftover = [...groups.values()].flat()
     if (picked.length < MAX_SEARCH_CANDIDATES) picked.push(...leftover.slice(0, MAX_SEARCH_CANDIDATES - picked.length))
 
-    const detailed = await hydrate(picked, { limit: MAX_SEARCH_CANDIDATES, concurrency: 5 })
-    const scoredResults = detailed.map((item, idx) => makeResult(input.profile, item, idx)).sort((a, b) => b.score - a.score)
+    const precomputed = new Map(candidates.map((c) => [`${c.item.source}|${c.item.id}`, c.r]))
+    const hydrateStart = Date.now()
+    let detailed
+    let hydratePartial = false
+    if (deadline - Date.now() >= 600) {
+      const h = await hydrate(picked, {
+        limit: MAX_SEARCH_CANDIDATES,
+        concurrency: 5,
+        deadline,
+      })
+      detailed = h.items
+      hydratePartial = h.partial
+    } else {
+      // 预算不足以补详情：直接用已打分的列表结果，保证总耗时 < 3s
+      detailed = picked.map((item) => ({ ...item, detail: 'fallback', detailError: 'budget' }))
+      hydratePartial = true
+    }
+    const hydrateMs = Date.now() - hydrateStart
+    const scoredResults = detailed
+      .map((item, idx) => {
+        const base = precomputed.get(`${item.source}|${item.id}`)
+        // 列表/降级条目的正文没变，直接复用前面的打分，避免重复 parse/score
+        if (base && item.detail !== 'ok') return { ...base, sourceDetail: item.detail || 'list' }
+        return makeResult(input.profile, item, idx)
+      })
+      .sort((a, b) => b.score - a.score)
     // 保留少量多来源名额，避免结果被单一站点刷屏
     const results = []
     const chosen = new Set()
@@ -716,30 +788,27 @@ async function handleApi(req, res, pathname) {
     }
     results.sort((a, b) => b.score - a.score)
 
-    stats.jds += results.length
-    for (const r of results) {
-      stats.verdicts[r.verdict] = (stats.verdicts[r.verdict] || 0) + 1
-      stats.sourceHits[r.source] = (stats.sourceHits[r.source] || 0) + 1
+    recordSearchStats(results)
+    const partial = collectPartial || hydratePartial
+    const totalMs = Date.now() - started
+    const meta = {
+      query: input.query,
+      city: input.city,
+      elapsedMs: totalMs,
+      candidates: candidates.length,
+      detailed: detailed.length,
+      returned: results.length,
+      sources: diagnostics,
+      partial,
+      sourcePartial: collectPartial,
+      detailPartial: hydratePartial,
+      budgetMs: SEARCH_BUDGET_MS,
+      networkBudgetMs: SEARCH_BUDGET_MS - SEARCH_RESERVE_MS,
+      timings: { collectMs, hydrateMs, scoreMs: Math.max(0, totalMs - collectMs - hydrateMs), totalMs },
+      ai: llm.configured(),
     }
-    if (results.length) stats.searchOk++
-    else stats.searchEmpty++
-    stats.lastAt = new Date().toISOString()
-    persistStats()
-
-    return sendJson(res, 200, {
-      ok: true,
-      results,
-      meta: {
-        query: input.query,
-        city: input.city,
-        elapsedMs: Date.now() - started,
-        candidates: candidates.length,
-        detailed: detailed.length,
-        returned: results.length,
-        sources: diagnostics,
-        ai: llm.configured(),
-      },
-    })
+    if (cacheOn && !(partial && results.length === 0)) searchCache.set(input, { results, meta })
+    return sendJson(res, 200, { ok: true, results, meta })
   }
 
   if (req.method === 'POST' && pathname === '/api/parse-profile') {

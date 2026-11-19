@@ -24,7 +24,7 @@ PORT=8790 node server.js
 打开 `http://localhost:8790/`。不配 AI 令牌时自动进入**规则模式**，秒出结果。
 
 ```bash
-node --test test/*.test.js   # 56 个测试
+node --test test/*.test.js   # 62 个测试
 ```
 
 > PDF 解析优先用 `pdftotext`（容器内已装 poppler-utils），没有时退回内置抽取；DOCX 用内置 zip 解压，不依赖 npm 包。猎聘用 `curl` 抓取（见下方「来源」）。
@@ -101,7 +101,7 @@ node --test test/*.test.js   # 56 个测试
 | GET | `/api/admin/exit` | **管理令牌**：当前出口 IP / 归属地 / online·offline（2s 硬超时，未配置毫秒级返回） |
 | GET | `/api/stats` | 匿名计数（筛选/搜索/简历/导入/AI/tokens） |
 | POST | `/api/resume` | 上传简历（base64），返回正文 + 解析出的画像 |
-| POST | `/api/search` | 按关键词/城市/来源搜岗位并匹配（`GET /api/search?q=…&city=…&sources=liepin,v2ex` 也可，便于冒烟） |
+| POST | `/api/search` | 按关键词/城市/来源搜岗位并匹配（`GET /api/search?q=…&city=…&sources=liepin,v2ex` 也可，便于冒烟）；6 源并发、单源 2.5s、总预算 3s，超时返回 `partial:true`，同条件结果缓存 5 分钟 |
 | POST | `/api/import-jd` | 从公开 JD 链接导入正文 |
 | POST | `/api/parse-profile` | 解析画像，返回识别到的技能 |
 | POST | `/api/parse-jd` | 解析单条 JD，不调模型 |
@@ -224,7 +224,7 @@ web/index.html         单页界面：简历上传 / 搜岗位 / 粘贴 JD / 结
 web/app.js             原生 ES module 前端
 web/styles.css         暗色主题，桌面 + 移动 + iframe 嵌入
 web/samples.json       3 条示例 JD
-test/                  45 个测试（解析 / 打分 / 来源 / 简历 / 登录态 / 网关 / API）
+test/                  62 个测试（解析 / 打分 / 来源 / 简历 / 登录态 / 网关 / API / 搜索并发缓存）
 deploy/                compose 服务片段、Caddy 路由、应用栏图标
 ```
 
@@ -265,4 +265,4 @@ deploy/                compose 服务片段、Caddy 路由、应用栏图标
 
 ## 版本
 
-`0.2.4` · 2026-11-14 · 新增大陆出口体检（`/api/admin/exit`、10 源解锁矩阵、家庭 SSH 反向隧道）。见 `STATUS.md`。
+`0.2.5` · 2026-11-19 · 搜索提速：6 源 allSettled 并发、单源 2.5s / 总预算 3s、5 分钟结果缓存。见 `STATUS.md`。
